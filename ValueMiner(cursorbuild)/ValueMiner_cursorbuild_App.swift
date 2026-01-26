@@ -7,9 +7,16 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseCore
+import FirebaseAuth
 
 @main
-struct ValueMiner_cursorbuild_App: App {
+struct ValueMiner_cursorguild_App: App {
+    init() {
+        FirebaseApp.configure()
+        try? Auth.auth().useUserAccessGroup("L6HK4D37VH.com.valueminer.shared")
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,

@@ -6,6 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C47BB62A2F257FA500693AC2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB6292F257FA500693AC2 /* FirebaseAuth */; };
+		C47BB62C2F257FA500693AC2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB62B2F257FA500693AC2 /* FirebaseFirestore */; };
+		C47BB6522F26876D00693AC2 /* ValueMinerShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C47BB65C2F2688A500693AC2 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB65B2F2688A500693AC2 /* FirebaseCore */; };
+		C47BB65E2F2688AD00693AC2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB65D2F2688AD00693AC2 /* FirebaseAuth */; };
+		C47BB6602F2688BC00693AC2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB65F2F2688BC00693AC2 /* FirebaseFirestore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C47BB5F72F23F1EA00693AC2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +30,59 @@
 			remoteGlobalIDString = C47BB5E62F23F1E700693AC2;
 			remoteInfo = "ValueMiner(cursorbuild)";
 		};
+		C47BB6502F26876D00693AC2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C47BB5DF2F23F1E700693AC2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C47BB6472F26876B00693AC2;
+			remoteInfo = ValueMinerShare;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C47BB6572F26876D00693AC2 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C47BB6522F26876D00693AC2 /* ValueMinerShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ValueMiner(cursorbuild).app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB5F62F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ValueMiner(cursorbuild)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB6002F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ValueMiner(cursorbuild)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ValueMinerShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C47BB6532F26876D00693AC2 /* Exceptions for "ValueMinerShare" folder in "ValueMinerShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C47BB6472F26876B00693AC2 /* ValueMinerShare */;
+		};
+		C47BB6592F26878400693AC2 /* Exceptions for "ValueMiner(cursorbuild)" folder in "ValueMinerShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"GoogleService-Info.plist",
+			);
+			target = C47BB6472F26876B00693AC2 /* ValueMinerShare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C47BB5E92F23F1E700693AC2 /* ValueMiner(cursorbuild) */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C47BB6592F26878400693AC2 /* Exceptions for "ValueMiner(cursorbuild)" folder in "ValueMinerShare" target */,
+			);
 			path = "ValueMiner(cursorbuild)";
 			sourceTree = "<group>";
 		};
@@ -45,6 +96,14 @@
 			path = "ValueMiner(cursorbuild)UITests";
 			sourceTree = "<group>";
 		};
+		C47BB6492F26876C00693AC2 /* ValueMinerShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C47BB6532F26876D00693AC2 /* Exceptions for "ValueMinerShare" folder in "ValueMinerShare" target */,
+			);
+			path = ValueMinerShare;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +111,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C47BB62A2F257FA500693AC2 /* FirebaseAuth in Frameworks */,
+				C47BB62C2F257FA500693AC2 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,6 +130,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C47BB6452F26876B00693AC2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C47BB65C2F2688A500693AC2 /* FirebaseCore in Frameworks */,
+				C47BB65E2F2688AD00693AC2 /* FirebaseAuth in Frameworks */,
+				C47BB6602F2688BC00693AC2 /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -78,6 +149,8 @@
 				C47BB5E92F23F1E700693AC2 /* ValueMiner(cursorbuild) */,
 				C47BB5F92F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests */,
 				C47BB6032F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests */,
+				C47BB6492F26876C00693AC2 /* ValueMinerShare */,
+				C47BB65A2F2688A500693AC2 /* Frameworks */,
 				C47BB5E82F23F1E700693AC2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +161,16 @@
 				C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */,
 				C47BB5F62F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests.xctest */,
 				C47BB6002F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests.xctest */,
+				C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C47BB65A2F2688A500693AC2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -102,16 +183,20 @@
 				C47BB5E32F23F1E700693AC2 /* Sources */,
 				C47BB5E42F23F1E700693AC2 /* Frameworks */,
 				C47BB5E52F23F1E700693AC2 /* Resources */,
+				C47BB6572F26876D00693AC2 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C47BB6512F26876D00693AC2 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C47BB5E92F23F1E700693AC2 /* ValueMiner(cursorbuild) */,
 			);
 			name = "ValueMiner(cursorbuild)";
 			packageProductDependencies = (
+				C47BB6292F257FA500693AC2 /* FirebaseAuth */,
+				C47BB62B2F257FA500693AC2 /* FirebaseFirestore */,
 			);
 			productName = "ValueMiner(cursorbuild)";
 			productReference = C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */;
@@ -163,6 +248,31 @@
 			productReference = C47BB6002F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		C47BB6472F26876B00693AC2 /* ValueMinerShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C47BB6542F26876D00693AC2 /* Build configuration list for PBXNativeTarget "ValueMinerShare" */;
+			buildPhases = (
+				C47BB6442F26876B00693AC2 /* Sources */,
+				C47BB6452F26876B00693AC2 /* Frameworks */,
+				C47BB6462F26876B00693AC2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C47BB6492F26876C00693AC2 /* ValueMinerShare */,
+			);
+			name = ValueMinerShare;
+			packageProductDependencies = (
+				C47BB65B2F2688A500693AC2 /* FirebaseCore */,
+				C47BB65D2F2688AD00693AC2 /* FirebaseAuth */,
+				C47BB65F2F2688BC00693AC2 /* FirebaseFirestore */,
+			);
+			productName = ValueMinerShare;
+			productReference = C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +294,9 @@
 						CreatedOnToolsVersion = 26.1.1;
 						TestTargetID = C47BB5E62F23F1E700693AC2;
 					};
+					C47BB6472F26876B00693AC2 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
 				};
 			};
 			buildConfigurationList = C47BB5E22F23F1E700693AC2 /* Build configuration list for PBXProject "ValueMiner(cursorbuild)" */;
@@ -195,6 +308,9 @@
 			);
 			mainGroup = C47BB5DE2F23F1E700693AC2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C47BB5E82F23F1E700693AC2 /* Products */;
 			projectDirPath = "";
@@ -203,6 +319,7 @@
 				C47BB5E62F23F1E700693AC2 /* ValueMiner(cursorbuild) */,
 				C47BB5F52F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests */,
 				C47BB5FF2F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests */,
+				C47BB6472F26876B00693AC2 /* ValueMinerShare */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +340,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C47BB5FE2F23F1EA00693AC2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C47BB6462F26876B00693AC2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +377,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C47BB6442F26876B00693AC2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +396,11 @@
 			isa = PBXTargetDependency;
 			target = C47BB5E62F23F1E700693AC2 /* ValueMiner(cursorbuild) */;
 			targetProxy = C47BB6012F23F1EA00693AC2 /* PBXContainerItemProxy */;
+		};
+		C47BB6512F26876D00693AC2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C47BB6472F26876B00693AC2 /* ValueMinerShare */;
+			targetProxy = C47BB6502F26876D00693AC2 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -395,11 +531,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "ValueMiner(cursorbuild)/ValueMiner(cursorbuild).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9Q6S64UNWA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ValueMiner-cursorbuild--Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -427,11 +565,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "ValueMiner(cursorbuild)/ValueMiner(cursorbuild).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9Q6S64UNWA;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ValueMiner-cursorbuild--Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -538,6 +678,64 @@
 			};
 			name = Release;
 		};
+		C47BB6552F26876D00693AC2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ValueMinerShare/ValueMinerShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9Q6S64UNWA;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ValueMinerShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ValueMinerShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "valueminer.ValueMiner-cursorbuild-.ValueMinerShare";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C47BB6562F26876D00693AC2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ValueMinerShare/ValueMinerShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9Q6S64UNWA;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ValueMinerShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ValueMinerShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "valueminer.ValueMiner-cursorbuild-.ValueMinerShare";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -577,7 +775,55 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		C47BB6542F26876D00693AC2 /* Build configuration list for PBXNativeTarget "ValueMinerShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47BB6552F26876D00693AC2 /* Debug */,
+				C47BB6562F26876D00693AC2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C47BB6292F257FA500693AC2 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		C47BB62B2F257FA500693AC2 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		C47BB65B2F2688A500693AC2 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		C47BB65D2F2688AD00693AC2 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		C47BB65F2F2688BC00693AC2 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C47BB5DF2F23F1E700693AC2 /* Project object */;
 }

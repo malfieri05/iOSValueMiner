@@ -47,7 +47,7 @@ struct MineView: View {
                 VStack(spacing: 12) {
                     ForEach(Array(clipsStore.clips.enumerated()), id: \.element.id) { index, clip in
                         ClipCard(
-                            clipNumber: index + 1,
+                            clipNumber: clipsStore.clips.count - index,
                             clip: clip,
                             onSelectCategory: { _ in },
                             onExpand: { selectedClip = clip }

@@ -42,10 +42,10 @@ final class ShareViewController: SLComposeServiceViewController {
             }
 
             do {
-                try await uploadClip(urlString: urlString, userId: user.uid)
+                try await enqueueClip(urlString: urlString, userId: user.uid)
                 completeRequest()
             } catch {
-                showErrorAndClose("Failed to save. Try again.")
+                showErrorAndClose("Failed to submit. Try again.")
             }
         }
     }
@@ -54,18 +54,24 @@ final class ShareViewController: SLComposeServiceViewController {
         guard let item = extensionContext?.inputItems.first as? NSExtensionItem,
               let attachments = item.attachments else { return nil }
 
-        for provider in attachments {
-            if provider.hasItemConformingToTypeIdentifier("public.url") {
-                return await loadItem(provider, type: "public.url")
-            }
-            if provider.hasItemConformingToTypeIdentifier("public.text") {
-                return await loadItem(provider, type: "public.text")
+        // First try direct URL payload
+        for provider in attachments where provider.hasItemConformingToTypeIdentifier("public.url") {
+            if let url = await loadURL(from: provider, type: "public.url") {
+                return url
             }
         }
+
+        // Fallback: parse URL out of shared text
+        for provider in attachments where provider.hasItemConformingToTypeIdentifier("public.text") {
+            if let url = await loadURL(from: provider, type: "public.text") {
+                return url
+            }
+        }
+
         return nil
     }
 
-    private func loadItem(_ provider: NSItemProvider, type: String) async -> String? {
+    private func loadURL(from provider: NSItemProvider, type: String) async -> String? {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: type, options: nil) { item, _ in
                 if let url = item as? URL {
@@ -85,15 +91,14 @@ final class ShareViewController: SLComposeServiceViewController {
         return detector?.firstMatch(in: text, options: [], range: range)?.url?.absoluteString
     }
 
-    private func uploadClip(urlString: String, userId: String) async throws {
+    private func enqueueClip(urlString: String, userId: String) async throws {
         let db = Firestore.firestore()
-        let doc = db.collection("users")
-            .document(userId)
-            .collection("clips")
-            .document()
+        let doc = db.collection("clipQueue").document()
 
         try await doc.setData([
+            "userId": userId,
             "url": urlString,
+            "status": "queued",
             "createdAt": Timestamp(date: Date())
         ])
     }

@@ -20,13 +20,33 @@ final class ShareViewController: SLComposeServiceViewController {
     }
 
     private func configureFirebase() {
+        // Ensure Firebase is configured for the extension
         if FirebaseApp.app() == nil {
-            let filePath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")!
-            let options = FirebaseOptions(contentsOfFile: filePath)!
+            guard let filePath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+                  let options = FirebaseOptions(contentsOfFile: filePath) else {
+                print("[ShareExt][Firebase] Missing GoogleService-Info.plist or invalid options")
+                return
+            }
             FirebaseApp.configure(options: options)
         }
-        try? Auth.auth().useUserAccessGroup("L6HK4D37VH.com.valueminer.shared")
-        print("Share Ext user:", Auth.auth().currentUser?.uid ?? "nil")
+
+        // Enable shared keychain access for Firebase Auth across the app + extensions
+        // Make sure this access group exists in both the main app and the extension entitlements
+        // and that Keychain Sharing is enabled with this exact identifier.
+        let accessGroup = "L6HK4D37VH.group.org.valueminer.shared"
+        do {
+            try Auth.auth().useUserAccessGroup(accessGroup)
+            print("[ShareExt][Firebase] Enabled user access group: \(accessGroup)")
+        } catch {
+            print("[ShareExt][Firebase] Failed to enable user access group (\(accessGroup)): \(error)")
+        }
+
+        // Optional: Log current user and token state for diagnostics
+        if let user = Auth.auth().currentUser {
+            print("[ShareExt][Firebase] Share Ext user: \(user.uid)")
+        } else {
+            print("[ShareExt][Firebase] No current user in Share Extension (sign-in may be required in host app)")
+        }
     }
 
     private func autoHandleShare() {

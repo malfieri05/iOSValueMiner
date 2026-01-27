@@ -11,15 +11,19 @@ struct SettingsView: View {
     let onSignOut: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("Settings")
-                .font(.title2).bold()
+        ZStack {
+            Color(red: 16/255, green: 18/255, blue: 32/255).ignoresSafeArea()
+            VStack(spacing: 24) {
+                Text("Settings")
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
 
-            Button("Sign Out") {
-                onSignOut()
+                Button("Sign Out") {
+                    onSignOut()
+                }
+                .foregroundColor(.red)
             }
-            .foregroundColor(.red)
+            .padding()
         }
-        .padding()
     }
 }

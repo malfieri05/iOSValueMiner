@@ -6,10 +6,12 @@
 //
 import SwiftUI
 import Combine
+import UIKit
 
 struct ContentView: View {
     @StateObject private var auth = AuthViewModel()
     @StateObject private var clipsStore = ClipsStore()
+    @StateObject private var categoriesStore = CategoriesStore()
     @StateObject private var vm: MineViewModel
 
     @State private var selectedClip: Clip?
@@ -19,8 +21,10 @@ struct ContentView: View {
     init() {
         let auth = AuthViewModel()
         let store = ClipsStore()
+        let categories = CategoriesStore()
         _auth = StateObject(wrappedValue: auth)
         _clipsStore = StateObject(wrappedValue: store)
+        _categoriesStore = StateObject(wrappedValue: categories)
         _vm = StateObject(wrappedValue: MineViewModel(auth: auth, clipsStore: store))
     }
 
@@ -28,20 +32,42 @@ struct ContentView: View {
         Group {
             if auth.user != nil {
                 TabView(selection: $selectedTab) {
-                    DashboardView(clips: clipsStore.clips, selectedClip: $selectedClip)
-                        .tabItem { Label("Dashboard", systemImage: "square.grid.2x2") }
-                        .tag(0)
+                    DashboardView(
+                        clips: clipsStore.clips,
+                        clipsStore: clipsStore,
+                        selectedClip: $selectedClip,
+                        categoriesStore: categoriesStore,
+                        userId: auth.userId,
+                        onSelectCategory: { clip, category in
+                            Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                        }
+                    )
+                    .tabItem { tabItem("Dashboard", systemImage: "square.grid.2x2") }
+                    .tag(0)
 
-                    MineView(vm: vm, clipsStore: clipsStore, selectedClip: $selectedClip)
-                        .tabItem { Label("Mine", systemImage: "bolt.fill") }
-                        .tag(1)
+                    MineView(
+                        vm: vm,
+                        clipsStore: clipsStore,
+                        categoriesStore: categoriesStore,
+                        selectedClip: $selectedClip,
+                        onSelectCategory: { clip, category in
+                            Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                        }
+                    )
+                    .tabItem { tabItem("Mine", systemImage: "bolt.fill") }
+                    .tag(1)
 
                     SettingsView {
                         auth.signOut()
                     }
-                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tabItem { tabItem("Profile", systemImage: "person.circle") }
                     .tag(2)
                 }
+                .background(
+                    TabBarHapticsObserver {
+                        lightHaptic()
+                    }
+                )
                 .sheet(item: $selectedClip) { clip in
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Clip Transcript")
@@ -62,8 +88,10 @@ struct ContentView: View {
         .onChange(of: auth.userId) { _, newValue in
             if let userId = newValue {
                 clipsStore.startListening(userId: userId)
+                categoriesStore.startListening(userId: userId)
             } else {
                 clipsStore.stopListening()
+                categoriesStore.stopListening()
             }
         }
     }
@@ -122,6 +150,61 @@ struct ContentView: View {
                 .padding(.top, 4)
             }
             .padding()
+        }
+    }
+
+    private func tabItem(_ title: String, systemImage: String) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: systemImage)
+                .font(.system(size: 19, weight: .regular))
+            Text(title)
+                .font(.system(size: 8, weight: .regular))
+        }
+    }
+
+    private func lightHaptic() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.prepare()
+        generator.impactOccurred()
+    }
+}
+
+private struct TabBarHapticsObserver: UIViewControllerRepresentable {
+    let onUserSelect: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onUserSelect: onUserSelect)
+    }
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        let controller = UIViewController()
+        controller.view.backgroundColor = .clear
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        guard let tabBarController = uiViewController.tabBarController else { return }
+        if context.coordinator.tabBarController !== tabBarController {
+            context.coordinator.attach(to: tabBarController)
+        }
+    }
+
+    final class Coordinator: NSObject, UITabBarControllerDelegate {
+        private let onUserSelect: () -> Void
+        private(set) weak var tabBarController: UITabBarController?
+
+        init(onUserSelect: @escaping () -> Void) {
+            self.onUserSelect = onUserSelect
+        }
+
+        func attach(to tabBarController: UITabBarController) {
+            self.tabBarController = tabBarController
+            tabBarController.delegate = self
+        }
+
+        func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
+            onUserSelect()
+            return true
         }
     }
 }

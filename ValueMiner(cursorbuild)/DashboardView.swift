@@ -12,6 +12,7 @@ struct DashboardView: View {
     let clips: [Clip]
     @ObservedObject var clipsStore: ClipsStore
     @Binding var selectedClip: Clip?
+    @Binding var selectedClipNumber: Int?
     @ObservedObject var categoriesStore: CategoriesStore
     let userId: String?
     let onSelectCategory: (Clip, String) -> Void
@@ -43,93 +44,10 @@ struct DashboardView: View {
         ZStack {
             Color(red: 16/255, green: 18/255, blue: 32/255).ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Your Mine.")
-                        .font(.title2).bold()
-                        .foregroundColor(.white)
+                headerView
+                    .padding(.horizontal, 16)
 
-                    HStack(spacing: 8) {
-                        TextField("New folder name", text: $newCategoryName)
-                            .textInputAutocapitalization(.never)
-                            .padding(10)
-                            .background(Color.white.opacity(0.08))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                        Button {
-                            lightHaptic()
-                            Task {
-                                let name = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if let uid = userId, !name.isEmpty {
-                                    try? await categoriesStore.addCategory(userId: uid, name: name)
-                                    newCategoryName = ""
-                                }
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add Category")
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text("(\(totalCategoryCount))")
-                                    .font(.system(size: 11, weight: .regular))
-                                    .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(Color.white.opacity(0.08))
-                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
-                            .cornerRadius(12)
-                        }
-                        .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || userId == nil)
-                    }
-
-                    ReorderableCategoryBar(
-                        categories: $categories,
-                        selectedCategoryId: $selectedCategoryId,
-                        persistenceKey: "category_bar_order_\(userId ?? "anon")",
-                        deletableTitles: deletableTitles,
-                        countProvider: { category in
-                            if category.title == "All" { return clips.count }
-                            return clips.filter { $0.category == category.title }.count
-                        }
-                    ) { category in
-                        selectedCategoryId = category.id
-                        if let idx = categories.firstIndex(where: { $0.id == category.id }) {
-                            selectedCategoryIndex = idx
-                        }
-                    } onDelete: { category in
-                        pendingDeleteCategory = category
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                SwipePagingView(
-                    pages: categories,
-                    scrollProgress: $scrollProgress,
-                    selectedIndex: $selectedCategoryIndex
-                ) { _, category in
-                    let pageClips = category.title == "All" ? clips : clips.filter { $0.category == category.title }
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(Array(pageClips.enumerated()), id: \.element.id) { clipIndex, clip in
-                                ClipCard(
-                                    clipNumber: pageClips.count - clipIndex,
-                                    clip: clip,
-                                    categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
-                                    onSelectCategory: { cat in onSelectCategory(clip, cat) },
-                                    onExpand: { selectedClip = clip }
-                                )
-                            }
-                        }
-                        .padding(.top, 4)
-                        .padding(.horizontal, 16)
-                    }
-                    .refreshable {
-                        if let uid = userId {
-                            clipsStore.startListening(userId: uid)
-                            categoriesStore.startListening(userId: uid)
-                        }
-                    }
-                }
+                pagerView
             }
         }
         .onAppear {
@@ -163,12 +81,15 @@ struct DashboardView: View {
                     .padding(12)
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(12)
+                    .onChange(of: newCategoryName) { _, newValue in
+                        newCategoryName = clampCategoryName(newValue)
+                    }
                 HStack {
                     Button("Cancel") { showingAddCategory = false }
                     Spacer()
                     Button("Add") {
                         Task {
-                            let name = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let name = clampCategoryName(newCategoryName).trimmingCharacters(in: .whitespacesAndNewlines)
                             if let uid = userId, !name.isEmpty {
                                 try? await categoriesStore.addCategory(userId: uid, name: name)
                                 newCategoryName = ""
@@ -239,6 +160,110 @@ struct DashboardView: View {
         generator.impactOccurred()
     }
 
+    private func clampCategoryName(_ value: String) -> String {
+        let maxLength = 20
+        if value.count <= maxLength { return value }
+        return String(value.prefix(maxLength))
+    }
+
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Your Mine.")
+                .font(.title2).bold()
+                .foregroundColor(.white)
+
+            HStack(spacing: 8) {
+                TextField("New folder name", text: $newCategoryName)
+                    .textInputAutocapitalization(.never)
+                    .padding(10)
+                    .background(Color.white.opacity(0.08))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                    .onChange(of: newCategoryName) { _, newValue in
+                        newCategoryName = clampCategoryName(newValue)
+                    }
+                Button {
+                    lightHaptic()
+                    Task {
+                        let name = clampCategoryName(newCategoryName).trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let uid = userId, !name.isEmpty {
+                            try? await categoriesStore.addCategory(userId: uid, name: name)
+                            newCategoryName = ""
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add Category")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("(\(totalCategoryCount))")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.08))
+                    .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    .cornerRadius(12)
+                }
+                .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || userId == nil)
+            }
+
+            ReorderableCategoryBar(
+                categories: $categories,
+                selectedCategoryId: $selectedCategoryId,
+                persistenceKey: "category_bar_order_\(userId ?? "anon")",
+                deletableTitles: deletableTitles,
+                countProvider: { category in
+                    if category.title == "All" { return clips.count }
+                    return clips.filter { $0.category == category.title }.count
+                }
+            ) { category in
+                selectedCategoryId = category.id
+                if let idx = categories.firstIndex(where: { $0.id == category.id }) {
+                    selectedCategoryIndex = idx
+                }
+            } onDelete: { category in
+                pendingDeleteCategory = category
+            }
+        }
+    }
+
+    private var pagerView: some View {
+        SwipePagingView(
+            pages: categories,
+            scrollProgress: $scrollProgress,
+            selectedIndex: $selectedCategoryIndex
+        ) { _, category in
+            let pageClips = category.title == "All" ? clips : clips.filter { $0.category == category.title }
+            ScrollView {
+                VStack(spacing: 12) {
+                        ForEach(Array(pageClips.enumerated()), id: \.element.id) { clipIndex, clip in
+                            let clipNumber = pageClips.count - clipIndex
+                            ClipCard(
+                                clipNumber: clipNumber,
+                                clip: clip,
+                                categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
+                                onSelectCategory: { cat in onSelectCategory(clip, cat) },
+                                onExpand: {
+                                    selectedClip = clip
+                                    selectedClipNumber = clipNumber
+                                }
+                            )
+                        }
+                }
+                .padding(.top, 4)
+                .padding(.horizontal, 16)
+            }
+            .refreshable {
+                if let uid = userId {
+                    clipsStore.startListening(userId: uid)
+                    categoriesStore.startListening(userId: uid)
+                }
+            }
+        }
+    }
+
     private func deleteCategory(named name: String) async {
         guard let uid = userId else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -246,6 +271,17 @@ struct DashboardView: View {
 
         let db = Firestore.firestore()
         do {
+            let clipsSnapshot = try await db
+                .collection("users")
+                .document(uid)
+                .collection("clips")
+                .whereField("category", isEqualTo: trimmed)
+                .getDocuments()
+
+            for doc in clipsSnapshot.documents {
+                try await doc.reference.updateData(["category": "Other"])
+            }
+
             let snapshot = try await db
                 .collection("users")
                 .document(uid)

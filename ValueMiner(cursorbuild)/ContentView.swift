@@ -15,6 +15,7 @@ struct ContentView: View {
     @StateObject private var vm: MineViewModel
 
     @State private var selectedClip: Clip?
+    @State private var selectedClipNumber: Int?
     @State private var isLoginMode = false
     @State private var selectedTab = 1
 
@@ -36,6 +37,7 @@ struct ContentView: View {
                         clips: clipsStore.clips,
                         clipsStore: clipsStore,
                         selectedClip: $selectedClip,
+                        selectedClipNumber: $selectedClipNumber,
                         categoriesStore: categoriesStore,
                         userId: auth.userId,
                         onSelectCategory: { clip, category in
@@ -50,6 +52,7 @@ struct ContentView: View {
                         clipsStore: clipsStore,
                         categoriesStore: categoriesStore,
                         selectedClip: $selectedClip,
+                        selectedClipNumber: $selectedClipNumber,
                         onSelectCategory: { clip, category in
                             Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
                         }
@@ -68,19 +71,25 @@ struct ContentView: View {
                         lightHaptic()
                     }
                 )
-                .sheet(item: $selectedClip) { clip in
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Clip Transcript")
-                            .font(.title2).bold()
-                        Text("\(clip.platform) • \(clip.category)")
-                            .foregroundColor(.secondary)
-                        ScrollView {
-                            Text(clip.transcript)
-                                .font(.body)
+                .overlay(
+                    Group {
+                        if let clip = selectedClip {
+                            ClipDetailModal(
+                                clip: clip,
+                                clipNumber: selectedClipNumber,
+                                onDismiss: {
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                                        selectedClip = nil
+                                        selectedClipNumber = nil
+                                    }
+                                }
+                            )
+                            .transition(.scale(scale: 0.96).combined(with: .opacity))
+                            .zIndex(10)
                         }
                     }
-                    .padding()
-                }
+                    .animation(.spring(response: 0.28, dampingFraction: 0.9), value: selectedClip != nil)
+                )
             } else {
                 authView
             }
@@ -207,4 +216,101 @@ private struct TabBarHapticsObserver: UIViewControllerRepresentable {
             return true
         }
     }
+}
+
+private struct ClipDetailModal: View {
+    let clip: Clip
+    let clipNumber: Int?
+    let onDismiss: () -> Void
+    private let dateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "M/d/yy"
+        return df
+    }()
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.12)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { onDismiss() }
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    categoryCapsule
+                    Spacer()
+                    Button("Close") { onDismiss() }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text(clipNumberText)
+                        .font(.system(size: 12, weight: .medium))
+
+                    if let url = URL(string: clip.url) {
+                        Link("Link", destination: url)
+                            .font(.system(size: 12, weight: .medium))
+                            .underline(true, color: .white.opacity(0.6))
+                            .foregroundColor(.white.opacity(0.6))
+                    } else {
+                        Text("Link")
+                            .font(.system(size: 12, weight: .medium))
+                            .underline(true, color: .white.opacity(0.6))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+
+                    Spacer()
+
+                    Text(clip.platform)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+
+                ScrollView {
+                    Text(clip.transcript)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack {
+                    Spacer()
+                    Text(dateFormatter.string(from: clip.createdAt))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
+            .padding(16)
+            .background(Color(red: 16/255, green: 18/255, blue: 32/255))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.25), radius: 18, x: 0, y: 8)
+            .frame(maxWidth: 272)
+            .frame(maxHeight: 416)
+            .padding(.horizontal, 24)
+            .onTapGesture {}
+        }
+    }
+
+    private var categoryCapsule: some View {
+        Text(clip.category.uppercased())
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.2))
+            .cornerRadius(14)
+    }
+
+    private var clipNumberText: String {
+        if let number = clipNumber {
+            return "Clip \(number)"
+        }
+        return "Clip"
+    }
+
 }

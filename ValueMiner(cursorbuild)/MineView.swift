@@ -13,6 +13,7 @@ struct MineView: View {
     @ObservedObject var clipsStore: ClipsStore
     @ObservedObject var categoriesStore: CategoriesStore
     @Binding var selectedClip: Clip?
+    @Binding var selectedClipNumber: Int?
     let onSelectCategory: (Clip, String) -> Void
 
     var body: some View {
@@ -55,12 +56,16 @@ struct MineView: View {
                 ScrollView {
                     VStack(spacing: 12) {
                         ForEach(Array(clipsStore.clips.enumerated()), id: \.element.id) { index, clip in
+                            let clipNumber = clipsStore.clips.count - index
                             ClipCard(
-                                clipNumber: clipsStore.clips.count - index,
+                                clipNumber: clipNumber,
                                 clip: clip,
                                 categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
                                 onSelectCategory: { category in onSelectCategory(clip, category) },
-                                onExpand: { selectedClip = clip }
+                                onExpand: {
+                                    selectedClip = clip
+                                    selectedClipNumber = clipNumber
+                                }
                             )
                         }
                     }

@@ -17,7 +17,7 @@ struct ContentView: View {
     @State private var selectedClip: Clip?
     @State private var selectedClipNumber: Int?
     @State private var isLoginMode = false
-    @State private var selectedTab = 1
+    @State private var selectedTab = 0
 
     init() {
         let auth = AuthViewModel()
@@ -36,6 +36,7 @@ struct ContentView: View {
                     DashboardView(
                         clips: clipsStore.clips,
                         clipsStore: clipsStore,
+                        vm: vm,
                         selectedClip: $selectedClip,
                         selectedClipNumber: $selectedClipNumber,
                         categoriesStore: categoriesStore,
@@ -47,24 +48,11 @@ struct ContentView: View {
                     .tabItem { tabItem("Dashboard", systemImage: "square.grid.2x2") }
                     .tag(0)
 
-                    MineView(
-                        vm: vm,
-                        clipsStore: clipsStore,
-                        categoriesStore: categoriesStore,
-                        selectedClip: $selectedClip,
-                        selectedClipNumber: $selectedClipNumber,
-                        onSelectCategory: { clip, category in
-                            Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
-                        }
-                    )
-                    .tabItem { tabItem("Mine", systemImage: "bolt.fill") }
-                    .tag(1)
-
                     SettingsView {
                         auth.signOut()
                     }
                     .tabItem { tabItem("Profile", systemImage: "person.circle") }
-                    .tag(2)
+                    .tag(1)
                 }
                 .background(
                     TabBarHapticsObserver {
@@ -77,6 +65,10 @@ struct ContentView: View {
                             ClipDetailModal(
                                 clip: clip,
                                 clipNumber: selectedClipNumber,
+                                categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
+                                onSelectCategory: { category in
+                                    Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                                },
                                 onDismiss: {
                                     withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                                         selectedClip = nil
@@ -107,7 +99,7 @@ struct ContentView: View {
 
     private var authView: some View {
         ZStack {
-            Color(red: 16/255, green: 18/255, blue: 32/255).ignoresSafeArea()
+            Color.black.ignoresSafeArea()
 
             VStack(spacing: 16) {
                 Text("ValueMiner")
@@ -221,6 +213,8 @@ private struct TabBarHapticsObserver: UIViewControllerRepresentable {
 private struct ClipDetailModal: View {
     let clip: Clip
     let clipNumber: Int?
+    let categories: [String]
+    let onSelectCategory: (String) -> Void
     let onDismiss: () -> Void
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -230,21 +224,27 @@ private struct ClipDetailModal: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.12)
+            Color.black.opacity(0.29)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     categoryCapsule
                     Spacer()
-                    Button("Close") { onDismiss() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                    }
                 }
 
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(clipNumberText)
                         .font(.system(size: 12, weight: .medium))
 
@@ -260,19 +260,18 @@ private struct ClipDetailModal: View {
                             .foregroundColor(.white.opacity(0.6))
                     }
 
-                    Spacer()
-
                     Text(clip.platform)
                         .font(.system(size: 13, weight: .regular))
                         .foregroundColor(.white.opacity(0.7))
                 }
 
                 ScrollView {
-                    Text(clip.transcript)
+                    Text(capitalizeFirstLetter(clip.transcript))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .padding(.top, 10)
 
                 HStack {
                     Spacer()
@@ -289,21 +288,27 @@ private struct ClipDetailModal: View {
                     .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6), lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.25), radius: 18, x: 0, y: 8)
-            .frame(maxWidth: 272)
-            .frame(maxHeight: 416)
+            .frame(maxWidth: 324)
+            .frame(maxHeight: 481)
             .padding(.horizontal, 24)
             .onTapGesture {}
         }
     }
 
     private var categoryCapsule: some View {
-        Text(clip.category.uppercased())
-            .font(.system(size: 12, weight: .bold))
-            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.2))
-            .cornerRadius(14)
+        Menu {
+            ForEach(categories, id: \.self) { category in
+                Button(category) { onSelectCategory(category) }
+            }
+        } label: {
+            Text(clip.category.uppercased())
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.2))
+                .cornerRadius(14)
+        }
     }
 
     private var clipNumberText: String {
@@ -311,6 +316,11 @@ private struct ClipDetailModal: View {
             return "Clip \(number)"
         }
         return "Clip"
+    }
+
+    private func capitalizeFirstLetter(_ text: String) -> String {
+        guard let first = text.first else { return text }
+        return String(first).uppercased() + text.dropFirst()
     }
 
 }

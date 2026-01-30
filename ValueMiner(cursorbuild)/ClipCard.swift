@@ -67,7 +67,7 @@ struct ClipCard: View {
             }
 
             // Transcript preview
-            Text(clip.transcript)
+            Text(capitalizeFirstLetter(clip.transcript))
                 .font(.system(size: 14, weight: .regular))
                 .lineLimit(3)
                 .foregroundColor(.white)
@@ -82,7 +82,11 @@ struct ClipCard: View {
         }
         .foregroundColor(.white)
         .padding(14)
-        .background(Color.white.opacity(0.08))
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9), lineWidth: 1.2)
+        )
         .cornerRadius(16)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -97,5 +101,10 @@ struct ClipCard: View {
             .max() ?? 0
         let horizontalPadding: CGFloat = 24 // matches .padding(.horizontal, 12)
         return maxTextWidth + horizontalPadding
+    }
+
+    private func capitalizeFirstLetter(_ text: String) -> String {
+        guard let first = text.first else { return text }
+        return String(first).uppercased() + text.dropFirst()
     }
 }

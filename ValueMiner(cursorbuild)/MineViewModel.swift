@@ -28,13 +28,13 @@ final class MineViewModel: ObservableObject {
         infoMessage = nil
 
         guard let userId = auth.userId else {
-            errorMessage = "Please sign in first."
+            setErrorThenClear(after: 2.2, "Please sign in first.")
             return
         }
 
         let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            errorMessage = "Please paste a valid URL."
+            setErrorThenClear(after: 2.2, "Please paste a valid URL.")
             return
         }
 
@@ -59,7 +59,17 @@ final class MineViewModel: ObservableObject {
             )
             urlText = ""
         } catch {
-            errorMessage = error.localizedDescription
+            setErrorThenClear(after: 2.2, error.localizedDescription)
+        }
+    }
+
+    private func setErrorThenClear(after seconds: TimeInterval, _ message: String) {
+        errorMessage = message
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            if errorMessage == message {
+                errorMessage = nil
+            }
         }
     }
 

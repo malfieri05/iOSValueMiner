@@ -2,7 +2,7 @@
 //  DashboardView.swift
 //  ValueMiner(cursorbuild)
 //
-//  Created by Michael Alfieri on 1/24/26.
+//  Created by Michael Alfieri on 1/29/26.
 //
 import SwiftUI
 import UIKit
@@ -11,6 +11,7 @@ import FirebaseFirestore
 struct DashboardView: View {
     let clips: [Clip]
     @ObservedObject var clipsStore: ClipsStore
+    @ObservedObject var vm: MineViewModel
     @Binding var selectedClip: Clip?
     @Binding var selectedClipNumber: Int?
     @ObservedObject var categoriesStore: CategoriesStore
@@ -22,6 +23,7 @@ struct DashboardView: View {
     @State private var selectedCategoryIndex: Int = 0
     @State private var scrollProgress: CGFloat = 0
     @State private var showingAddCategory = false
+    @State private var isAddCategoryExpanded = false
     @State private var newCategoryName: String = ""
     @State private var pendingDeleteCategory: Category?
 
@@ -42,7 +44,7 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 16/255, green: 18/255, blue: 32/255).ignoresSafeArea()
+            Color.black.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
                 headerView
                     .padding(.horizontal, 16)
@@ -173,15 +175,77 @@ struct DashboardView: View {
                 .foregroundColor(.white)
 
             HStack(spacing: 8) {
-                TextField("New folder name", text: $newCategoryName)
+                NoKeyboardURLField(
+                    text: $vm.urlText,
+                    placeholder: vm.errorMessage ?? "Paste a video URL",
+                    placeholderIsError: vm.errorMessage != nil
+                )
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.08))
+                .cornerRadius(12)
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+
+                Button {
+                    lightHaptic()
+                    Task { await vm.mine() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if vm.isLoading { ProgressView().tint(.white) }
+                        Text(vm.isLoading ? "Mining..." : "Mine")
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                        if !vm.isLoading {
+                            Image(systemName: "hammer.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                    }
+                }
+                .buttonStyle(NarrowActionButtonStyle())
+                .disabled(vm.isLoading)
+
+                Button {
+                    lightHaptic()
+                    withAnimation(.easeInOut(duration: 0.25)) { isAddCategoryExpanded.toggle() }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.7))
+                        .rotationEffect(.degrees(isAddCategoryExpanded ? 90 : 0))
+                        .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
+                }
+                .buttonStyle(CapsuleToggleButtonStyle())
+            }
+            .background(Color.black)
+            .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
+
+            if let info = vm.infoMessage {
+                Text(info).foregroundColor(.orange).font(.callout)
+            }
+
+            if isAddCategoryExpanded {
+            HStack(spacing: 8) {
+                TextField(
+                    "",
+                    text: $newCategoryName,
+                    prompt: Text("New folder name")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.4))
+                )
                     .textInputAutocapitalization(.never)
-                    .padding(10)
+                    .font(.system(size: 14))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                     .background(Color.white.opacity(0.08))
                     .foregroundColor(.white)
                     .cornerRadius(12)
                     .onChange(of: newCategoryName) { _, newValue in
                         newCategoryName = clampCategoryName(newValue)
                     }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
                 Button {
                     lightHaptic()
                     Task {
@@ -195,18 +259,21 @@ struct DashboardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "plus.circle.fill")
                         Text("Add Category")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                         Text("(\(totalCategoryCount))")
                             .font(.system(size: 11, weight: .regular))
                             .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.08))
-                    .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
-                    .cornerRadius(12)
                 }
+                .fixedSize(horizontal: true, vertical: false)
+                .buttonStyle(ActionButtonStyle())
                 .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || userId == nil)
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             ReorderableCategoryBar(
@@ -364,3 +431,103 @@ private extension View {
         self.modifier(PagingIfAvailable())
     }
 }
+
+private struct NarrowActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 112, height: 40)
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+            .cornerRadius(12)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct CapsuleToggleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 40, height: 40)
+            .background(Color.clear)
+            .foregroundColor(.white.opacity(0.7))
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct ActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 150, height: 40)
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+            .cornerRadius(12)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+// URL field that keeps cursor + paste (long-press) but never shows the keyboard.
+private struct NoKeyboardURLField: UIViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+    var placeholderIsError: Bool
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.delegate = context.coordinator
+        field.inputView = UIView()
+        field.inputAccessoryView = nil
+        field.keyboardType = .URL
+        field.autocapitalizationType = .none
+        field.autocorrectionType = .no
+        field.font = .systemFont(ofSize: 14)
+        field.textColor = .white
+        field.backgroundColor = .clear
+        field.borderStyle = .none
+        field.contentVerticalAlignment = .center
+        return field
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != text {
+            uiView.text = text
+        }
+        uiView.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [.foregroundColor: placeholderIsError ? UIColor.systemRed : UIColor.white.withAlphaComponent(0.4)]
+        )
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: NoKeyboardURLField
+        init(_ parent: NoKeyboardURLField) { self.parent = parent }
+
+        func textFieldDidChangeSelection(_ textField: UITextField) {
+            parent.text = textField.text ?? ""
+        }
+    }
+}
+
+
+
+#Preview {
+    DashboardView(
+        clips: [],
+        clipsStore: ClipsStore(),
+        vm: MineViewModel(auth: AuthViewModel(), clipsStore: ClipsStore()),
+        selectedClip: .constant(nil),
+        selectedClipNumber: .constant(nil),
+        categoriesStore: CategoriesStore(),
+        userId: nil,
+        onSelectCategory: { _, _ in }
+    )
+}
+

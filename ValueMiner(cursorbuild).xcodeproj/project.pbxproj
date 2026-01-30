@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C406B9D12F2BBE120040C750 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = C406B9D02F2BBE120040C750 /* FirebaseFunctions */; };
 		C47BB62A2F257FA500693AC2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB6292F257FA500693AC2 /* FirebaseAuth */; };
 		C47BB62C2F257FA500693AC2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB62B2F257FA500693AC2 /* FirebaseFirestore */; };
 		C47BB6522F26876D00693AC2 /* ValueMinerShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -111,6 +112,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C406B9D12F2BBE120040C750 /* FirebaseFunctions in Frameworks */,
 				C47BB62A2F257FA500693AC2 /* FirebaseAuth in Frameworks */,
 				C47BB62C2F257FA500693AC2 /* FirebaseFirestore in Frameworks */,
 			);
@@ -197,6 +199,7 @@
 			packageProductDependencies = (
 				C47BB6292F257FA500693AC2 /* FirebaseAuth */,
 				C47BB62B2F257FA500693AC2 /* FirebaseFirestore */,
+				C406B9D02F2BBE120040C750 /* FirebaseFunctions */,
 			);
 			productName = "ValueMiner(cursorbuild)";
 			productReference = C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */;
@@ -798,6 +801,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C406B9D02F2BBE120040C750 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
 		C47BB6292F257FA500693AC2 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

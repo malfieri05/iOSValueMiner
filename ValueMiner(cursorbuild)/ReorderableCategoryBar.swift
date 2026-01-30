@@ -4,6 +4,7 @@
 //
 //  Created by Michael Alfieri on 1/27/26.
 //
+
 import SwiftUI
 import UIKit
 
@@ -44,7 +45,18 @@ struct ReorderableCategoryBar: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        VStack(alignment: .leading, spacing: 6) {
+            if isEditing {
+                Button("Done") { isEditing = false }
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.2))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.leading, 4)
+            }
+
             ReorderableCategoryBarRepresentable(
                 categories: $categories,
                 selectedCategoryId: $selectedCategoryId,
@@ -56,17 +68,6 @@ struct ReorderableCategoryBar: View {
                 onDelete: onDelete
             )
             .frame(height: 44)
-
-            if isEditing {
-                Button("Done") { isEditing = false }
-                    .font(.system(size: 13, weight: .semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.2))
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                    .padding(.trailing, 4)
-            }
         }
     }
 }
@@ -347,7 +348,6 @@ final class CategoryPillCell: UICollectionViewCell {
         let baseColor = isAll
             ? UIColor.systemGreen
             : UIColor(red: 164/255, green: 93/255, blue: 233/255, alpha: 1)
-
         let titleText = title.uppercased()
         if let count = count {
             let full = "\(titleText) (\(count))"

@@ -13,12 +13,11 @@ import FirebaseFirestore
 final class CategoriesStore: ObservableObject {
     @Published var defaultCategories: [String] = [
         "All",
-        "Business",
         "Health",
-        "Mindset",
-        "Politics",
-        "Productivity",
-        "Religion",
+        "Business",
+        "Funny",
+        "Motivation",
+        "Science",
         "Other"
     ]
 

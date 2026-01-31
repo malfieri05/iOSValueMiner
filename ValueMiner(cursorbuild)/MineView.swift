@@ -3,7 +3,7 @@
 //  ValueMiner(cursorbuild)
 //
 //  Created by Michael Alfieri on 1/24/26.
-//
+
 import SwiftUI
 import Combine
 import UIKit
@@ -27,7 +27,7 @@ struct MineView: View {
                             ClipCard(
                                 clipNumber: clipNumber,
                                 clip: clip,
-                                categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
+                                categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
                                 onSelectCategory: { category in onSelectCategory(clip, category) },
                                 onExpand: {
                                     selectedClip = clip

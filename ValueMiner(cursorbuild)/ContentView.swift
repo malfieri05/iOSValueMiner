@@ -4,6 +4,7 @@
 //
 //  Created by Michael Alfieri on 1/23/26.
 //
+
 import SwiftUI
 import Combine
 import UIKit
@@ -28,6 +29,8 @@ struct ContentView: View {
         _categoriesStore = StateObject(wrappedValue: categories)
         _vm = StateObject(wrappedValue: MineViewModel(auth: auth, clipsStore: store))
     }
+    
+    private let authFormMaxWidth: CGFloat = 360
 
     var body: some View {
         Group {
@@ -45,13 +48,13 @@ struct ContentView: View {
                             Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
                         }
                     )
-                    .tabItem { tabItem("Dashboard", systemImage: "square.grid.2x2") }
+                    .tabItem { tabItem(systemImage: "bolt.fill") }
                     .tag(0)
 
                     SettingsView {
                         auth.signOut()
                     }
-                    .tabItem { tabItem("Profile", systemImage: "person.circle") }
+                    .tabItem { tabItem(systemImage: "scroll.fill") }
                     .tag(1)
                 }
                 .background(
@@ -65,7 +68,7 @@ struct ContentView: View {
                             ClipDetailModal(
                                 clip: clip,
                                 clipNumber: selectedClipNumber,
-                                categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
+                                categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
                                 onSelectCategory: { category in
                                     Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
                                 },
@@ -101,66 +104,121 @@ struct ContentView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                Text("ValueMiner")
-                    .font(.largeTitle).bold()
-                    .foregroundColor(.white)
-
-                Text(isLoginMode ? "Log in to your account" : "Create your account")
-                    .foregroundColor(.white.opacity(0.8))
-
-                TextField("Email", text: $auth.email)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .padding()
-                    .background(Color.white.opacity(0.08))
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-
-                SecureField("Password", text: $auth.password)
-                    .padding()
-                    .background(Color.white.opacity(0.08))
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-
-                if let error = auth.authError {
-                    Text(error).foregroundColor(.red).font(.callout)
-                }
-
-                Button {
-                    Task { isLoginMode ? await auth.signIn() : await auth.signUp() }
-                } label: {
-                    Text(isLoginMode ? "Log In" : "Create Account")
-                        .bold()
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color(red: 164/255, green: 93/255, blue: 233/255))
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                }
-
-                Button {
-                    isLoginMode.toggle()
-                } label: {
-                    Text(isLoginMode
-                         ? "Need an account? Create one"
-                         : "Already have an account? Log in")
-                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
-                        .font(.callout)
-                }
-                .padding(.top, 4)
+            // Center the INPUTS on screen (simple + reliable),
+            // then place header above and actions below.
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                authInputs
+                Spacer(minLength: 0)
             }
             .padding()
+            .overlay(alignment: .center) {
+                authHeader
+                    .offset(y: -160)
+            }
+            .overlay(alignment: .center) {
+                authActions
+                    .offset(y: 120)
+            }
         }
     }
 
-    private func tabItem(_ title: String, systemImage: String) -> some View {
-        VStack(spacing: 2) {
-            Image(systemName: systemImage)
-                .font(.system(size: 19, weight: .regular))
-            Text(title)
-                .font(.system(size: 8, weight: .regular))
+    private var authHeader: some View {
+        VStack(spacing: 10) {
+            if let icon = appIconUIImage {
+                Image(uiImage: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 86, height: 86)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.7), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 6)
+            }
+
+            Text("ValueMiner")
+                .font(.largeTitle).bold()
+                .foregroundColor(.white)
+
+            Text(isLoginMode ? "Log in to your account" : "Create your account")
+                .foregroundColor(.white.opacity(0.8))
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var authInputs: some View {
+        VStack(spacing: 14) {
+            TextField("Email", text: $auth.email)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.emailAddress)
+                .padding()
+                .background(Color.white.opacity(0.08))
+                .foregroundColor(.white)
+                .cornerRadius(12)
+
+            SecureField("Password", text: $auth.password)
+                .padding()
+                .background(Color.white.opacity(0.08))
+                .foregroundColor(.white)
+                .cornerRadius(12)
+        }
+        .frame(maxWidth: authFormMaxWidth)
+    }
+
+    private var authActions: some View {
+        VStack(spacing: 14) {
+            if let error = auth.authError {
+                Text(error).foregroundColor(.red).font(.callout)
+            }
+
+            Button {
+                Task { isLoginMode ? await auth.signIn() : await auth.signUp() }
+            } label: {
+                Text(isLoginMode ? "Log In" : "Create Account")
+                    .bold()
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+
+            Button {
+                isLoginMode.toggle()
+            } label: {
+                Text(isLoginMode
+                     ? "Need an account? Create one"
+                     : "Already have an account? Log in")
+                    .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    .font(.callout)
+            }
+        }
+        .frame(maxWidth: authFormMaxWidth)
+    }
+
+    private var appIconUIImage: UIImage? {
+        if let name = primaryAppIconName(), let img = UIImage(named: name) {
+            return img
+        }
+        // Some builds may expose the icon under this name; safe fallback.
+        return UIImage(named: "AppIcon")
+    }
+
+    private func primaryAppIconName() -> String? {
+        guard
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let files = primary["CFBundleIconFiles"] as? [String],
+            let name = files.last
+        else { return nil }
+        return name
+    }
+
+    private func tabItem(systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 20, weight: .semibold))
     }
 
     private func lightHaptic() {
@@ -224,12 +282,12 @@ private struct ClipDetailModal: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.29)
+            Color.black.opacity(0.35)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     categoryCapsule
                     Spacer()
@@ -267,11 +325,14 @@ private struct ClipDetailModal: View {
 
                 ScrollView {
                     Text(capitalizeFirstLetter(clip.transcript))
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.system(size: 16, weight: .light))
+                        .lineSpacing(3)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.top, 10)
+
+                Spacer(minLength: 10)
 
                 HStack {
                     Spacer()
@@ -281,7 +342,8 @@ private struct ClipDetailModal: View {
                 }
             }
             .padding(16)
-            .background(Color(red: 16/255, green: 18/255, blue: 32/255))
+            // Midpoint between old navy (16/18/32) and black
+            .background(Color(red: 8/255, green: 9/255, blue: 16/255))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -324,3 +386,4 @@ private struct ClipDetailModal: View {
     }
 
 }
+

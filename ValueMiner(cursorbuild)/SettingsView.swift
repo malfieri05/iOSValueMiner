@@ -1,19 +1,57 @@
-//
-//  SettingsView.swift
-//  ValueMiner(cursorbuild)
-//
-//  Created by Michael Alfieri on 1/24/26.
-//
+
+
+
+
+
+
+
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
+import UIKit
+
+private struct DayNumberAnchorKey: PreferenceKey {
+    static var defaultValue: Anchor<CGPoint>? = nil
+    static func reduce(value: inout Anchor<CGPoint>?, nextValue: () -> Anchor<CGPoint>?) {
+        value = nextValue() ?? value
+    }
+}
+
+private struct AtLabelWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct FloatingPrimaryButtonStyle: ButtonStyle {
+    let fill: Color
+    let border: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(fill)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(border, lineWidth: 1)
+            )
+            .cornerRadius(12)
+            // Subtle depth / "floating" effect
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.18 : 0.30), radius: configuration.isPressed ? 8 : 14, x: 0, y: configuration.isPressed ? 3 : 7)
+            .shadow(color: fill.opacity(configuration.isPressed ? 0.12 : 0.18), radius: configuration.isPressed ? 6 : 10, x: 0, y: 0)
+            // Press feel
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
 
 struct SettingsView: View {
     let onSignOut: () -> Void
     
     @AppStorage("scrollReportEnabled") private var scrollReportEnabled = false
-    @AppStorage("scrollReportIntervalDays") private var scrollReportIntervalDays = 7
+    // Default schedule interval (used when no setting exists yet)
+    @AppStorage("scrollReportIntervalDays") private var scrollReportIntervalDays = 3
     @AppStorage("scrollReportSendTime") private var scrollReportSendTime = Date()
     
     @State private var isHydratingSettings = true
@@ -23,6 +61,11 @@ struct SettingsView: View {
     @State private var clipCountSinceLastReport: Int = 0
     @State private var lastReportDate: Date?
     @State private var showSettingsMenu = false
+    @State private var atLabelWidth: CGFloat = 0
+    
+    // Match the mined clip cell outline style (ClipCard)
+    private let outlineColor = Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9)
+    private let accentPurple = Color(red: 164/255, green: 93/255, blue: 233/255)
     
     var body: some View {
         ZStack {
@@ -50,52 +93,13 @@ struct SettingsView: View {
                     .padding(.bottom, 24)
                 }
             }
-            .overlay(alignment: .topTrailing) {
-                if showSettingsMenu {
-                    ZStack(alignment: .topTrailing) {
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .frame(width: 120, height: 100)
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu = false }
-                            }
-                        
-                        VStack(alignment: .trailing, spacing: 0) {
-                            Spacer().frame(height: 50)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu = false }
-                                }
-                            Button(action: {
-                                showSettingsMenu = false
-                                onSignOut()
-                            }) {
-                                Text("Sign out")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.7)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(Capsule().fill(Color.black))
-                                    .overlay(
-                                        Capsule()
-                                            .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6), lineWidth: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .frame(minWidth: 90, alignment: .center)
-                        }
-                        .frame(width: 120, height: 100)
-                    }
-                    .padding(.trailing, 16)
-                    .padding(.top, 6)
-                    .contentShape(Rectangle())
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-            }
         }
         .onAppear {
+            // Defensive: if AppStorage gets corrupted or a wrong type is written,
+            // ensure we always show a valid interval (and the UI never renders blank).
+            if scrollReportIntervalDays < 1 || scrollReportIntervalDays > 7 {
+                scrollReportIntervalDays = 3
+            }
             loadScrollReportSettings()
             loadClipCount()
             loadClipCountSinceLastReport()
@@ -118,14 +122,41 @@ struct SettingsView: View {
                 .foregroundColor(.white)
             
             Spacer()
-            
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu.toggle() } }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(10)
-                    .background(Color.white.opacity(0.08))
-                    .clipShape(Circle())
+
+            // Gear with "Sign out" pill that expands to the LEFT
+            ZStack(alignment: .trailing) {
+                if showSettingsMenu {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu = false }
+                        onSignOut()
+                    }) {
+                        Text("Sign out")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(Color.black))
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    // Place it to the left of the gear with a small gap
+                    .offset(x: -54)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu.toggle() } }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -155,8 +186,12 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
     }
     
     private var totalClipsCard: some View {
@@ -175,8 +210,12 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
@@ -197,8 +236,12 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
@@ -212,65 +255,115 @@ struct SettingsView: View {
             Text("Receive new automated email report of your saved clips per set time period:")
                 .font(.footnote)
                 .foregroundColor(.white.opacity(0.6))
-            
-            Toggle(isOn: $scrollReportEnabled) {
-                Text("Enable report emails")
-                    .foregroundColor(.white)
-            }
-            .tint(Color(red: 164/255, green: 93/255, blue: 233/255))
-            
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Schedule")
-                    .font(.caption)
+
+            // Toggle row: label (smaller/gray) + toggle on same line
+            HStack(spacing: 12) {
+                Text("Enable report emails:")
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.6))
-                
-                HStack(spacing: 8) {
-                    Text("Every")
-                        .foregroundColor(.white)
-                    
-                    HStack(spacing: 8) {
-                        Button(action: { updateInterval(-1) }) {
-                            Image(systemName: "minus")
-                                .font(.system(size: 12, weight: .bold))
+                Spacer()
+                Toggle("", isOn: $scrollReportEnabled)
+                    .labelsHidden()
+                    .tint(Color(red: 164/255, green: 93/255, blue: 233/255))
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Schedule:")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .underline(true, color: .white)
+
+                // Centered schedule controls with no truncation ("...") ever.
+                VStack(spacing: 12) {
+                    HStack {
+                        Spacer(minLength: 0)
+                        HStack(spacing: 10) {
+                            Text("Every")
                                 .foregroundColor(.white)
-                                .frame(width: 24, height: 24)
+                                .fixedSize(horizontal: true, vertical: false)
+
+                            Button(action: { updateInterval(-1) }) {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(accentPurple)
+                                    .frame(width: 29, height: 29) // +10% bigger
+                                    .background(Color.white.opacity(0.08))
+                                    .clipShape(Circle())
+                            }
+                            .simultaneousGesture(TapGesture().onEnded { lightHaptic() })
+
+                            Text("\(scrollReportIntervalDays)")
+                                .font(.system(size: 16, weight: .semibold)) // +10% bigger
+                                .foregroundColor(.white)
+                                .monospacedDigit()
+                                .frame(minWidth: 32, alignment: .center) // +10% bigger
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
                                 .background(Color.white.opacity(0.08))
-                                .clipShape(Circle())
+                                .cornerRadius(8)
+                                // Capture the center of the day-number pill so we can
+                                // center the time picker directly underneath it.
+                                .anchorPreference(key: DayNumberAnchorKey.self, value: .center) { $0 }
+
+                            Button(action: { updateInterval(1) }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(accentPurple)
+                                    .frame(width: 29, height: 29) // +10% bigger
+                                    .background(Color.white.opacity(0.08))
+                                    .clipShape(Circle())
+                            }
+                            .simultaneousGesture(TapGesture().onEnded { lightHaptic() })
+
+                            Text("day(s)")
+                                .foregroundColor(.white)
+                                .fixedSize(horizontal: true, vertical: false)
                         }
-                        
-                        Text("\(scrollReportIntervalDays)")
-                            .font(.system(size: 14, weight: .semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.08))
-                            .cornerRadius(8)
-                        
-                        Button(action: { updateInterval(1) }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 24, height: 24)
-                                .background(Color.white.opacity(0.08))
-                                .clipShape(Circle())
+                        .fixedSize(horizontal: true, vertical: false)
+                        Spacer(minLength: 0)
+                    }
+
+                    // Reserve vertical space; we position the time picker via the anchor.
+                    Color.clear.frame(height: 34)
+                }
+                .overlayPreferenceValue(DayNumberAnchorKey.self) { anchor in
+                    GeometryReader { proxy in
+                        if let anchor {
+                            let p = proxy[anchor]
+                            // Keep the time picker horizontally fixed at p.x, and place "at"
+                            // immediately to its left without shifting the picker.
+                            // Strategy:
+                            // - Render as HStack("at", DatePicker)
+                            // - Position the *HStack* such that the DatePicker's center remains at p.x
+                            //   (i.e. HStack center is shifted left by (atWidth + spacing)/2).
+                            HStack(spacing: 8) {
+                                Text("at")
+                                    .foregroundColor(.white)
+                                    .font(.footnote)
+                                    .background(
+                                        GeometryReader { g in
+                                            Color.clear.preference(key: AtLabelWidthKey.self, value: g.size.width)
+                                        }
+                                    )
+                                    .onPreferenceChange(AtLabelWidthKey.self) { atLabelWidth = $0 }
+
+                                DatePicker(
+                                    "Send time",
+                                    selection: $scrollReportSendTime,
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .labelsHidden()
+                                .datePickerStyle(.compact)
+                            }
+                            .fixedSize()
+                            // Ensure the "at" text stays visible above the picker.
+                            .zIndex(2)
+                            // Keep the DatePicker's horizontal position fixed at p.x.
+                            .position(x: p.x - (atLabelWidth + 8) / 2, y: p.y + 44)
                         }
                     }
-                    
-                    Text(scrollReportIntervalDays == 1 ? "day" : "days")
-                        .foregroundColor(.white)
                 }
                 .disabled(!scrollReportEnabled)
-                
-                HStack(spacing: 8) {
-                    Text("at")
-                        .foregroundColor(.white)
-                    DatePicker(
-                        "Send time",
-                        selection: $scrollReportSendTime,
-                        displayedComponents: .hourAndMinute
-                    )
-                    .labelsHidden()
-                    .disabled(!scrollReportEnabled)
-                }
             }
             
             Text("Reports send to \(userEmail)")
@@ -281,26 +374,25 @@ struct SettingsView: View {
                 .font(.footnote)
                 .foregroundColor(.white.opacity(0.6))
             
-            Button(action: sendScrollReportNow) {
+            Button {
+                lightHaptic()
+                sendScrollReportNow()
+            } label: {
                 ZStack {
                     if isSendingNow {
                         ProgressView()
                             .tint(.white)
                     } else {
-                        Text("Send current scroll report now!")
+                        Text("Send current report now!")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.black)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.8), lineWidth: 1)
-                )
-                .cornerRadius(12)
             }
+            .buttonStyle(FloatingPrimaryButtonStyle(fill: accentPurple, border: accentPurple.opacity(0.95)))
+            .padding(.top, 10)
             .disabled(isSendingNow)
             
             if let status = sendNowStatus {
@@ -310,8 +402,12 @@ struct SettingsView: View {
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
         .padding(.horizontal, 16)
     }
     
@@ -342,6 +438,11 @@ struct SettingsView: View {
                 return
             }
             sendNowStatus = "Report sent."
+            // Immediately reflect that a report was just sent:
+            // - Reset "Since last report" to 0 in the UI
+            // - Set lastReportDate so subsequent queries treat "now" as the new baseline
+            lastReportDate = Date()
+            clipCountSinceLastReport = 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 sendNowStatus = nil
             }
@@ -486,4 +587,12 @@ struct SettingsView: View {
         let next = scrollReportIntervalDays + delta
         scrollReportIntervalDays = min(max(next, 1), 7)
     }
+
+    private func lightHaptic() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.prepare()
+        generator.impactOccurred()
+    }
 }
+
+

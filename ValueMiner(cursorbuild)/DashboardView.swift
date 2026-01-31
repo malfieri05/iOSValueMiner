@@ -2,8 +2,11 @@
 //  DashboardView.swift
 //  ValueMiner(cursorbuild)
 //
-//  Created by Michael Alfieri on 1/29/26.
 //
+//  DashboardView.swift
+//  ValueMiner(cursorbuild)
+//
+
 import SwiftUI
 import UIKit
 import FirebaseFirestore
@@ -31,7 +34,8 @@ struct DashboardView: View {
         let allCategory = categoriesStore.defaultCategories.first! // "All"
         let otherCategories = categoriesStore.defaultCategories.dropFirst().filter { $0 != "Other" }
         let otherCategory = "Other"
-        return [allCategory] + otherCategories + categoriesStore.customCategories + [otherCategory]
+        // New custom categories appear in the first slot to the right of "All"
+        return [allCategory] + categoriesStore.customCategories + otherCategories + [otherCategory]
     }
 
     private var totalCategoryCount: Int {
@@ -125,18 +129,24 @@ struct DashboardView: View {
             return
         }
 
+        // Build the list in the exact order of titles, preserving UUIDs
         var newList: [Category] = []
-        let titleSet = Set(titles)
-
-        for existing in categories where titleSet.contains(existing.title) {
-            newList.append(existing)
-        }
-
-        for title in titles where !newList.contains(where: { $0.title == title }) {
-            newList.append(Category(id: idForTitle(title), title: title))
+        for title in titles {
+            // Try to find existing category with same title to preserve its UUID
+            if let existing = categories.first(where: { $0.title == title }) {
+                newList.append(existing)
+            } else {
+                // New category - create with stable UUID
+                newList.append(Category(id: idForTitle(title), title: title))
+            }
         }
 
         categories = newList
+        
+        // Persist this order to UserDefaults so ReorderableCategoryBar respects it
+        let persistenceKey = "category_bar_order_\(userId ?? "anon")"
+        let ids = newList.map { $0.id.uuidString }
+        UserDefaults.standard.set(ids, forKey: persistenceKey)
 
         if selectedCategoryId == nil || !categories.contains(where: { $0.id == selectedCategoryId }) {
             selectedCategoryId = categories.first?.id
@@ -184,8 +194,9 @@ struct DashboardView: View {
                 .padding(.vertical, 8)
                 .background(Color.white.opacity(0.08))
                 .cornerRadius(12)
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+                .fixedSize(horizontal: false, vertical: true)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 Button {
                     lightHaptic()
@@ -198,7 +209,7 @@ struct DashboardView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.9)
                         if !vm.isLoading {
-                            Image(systemName: "hammer.fill")
+                            Image(systemName: "bolt")
                                 .font(.system(size: 11, weight: .semibold))
                         }
                     }
@@ -269,7 +280,6 @@ struct DashboardView: View {
                             .minimumScaleFactor(0.9)
                     }
                 }
-                .fixedSize(horizontal: true, vertical: false)
                 .buttonStyle(ActionButtonStyle())
                 .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || userId == nil)
             }
@@ -310,7 +320,7 @@ struct DashboardView: View {
                             ClipCard(
                                 clipNumber: clipNumber,
                                 clip: clip,
-                                categories: categoriesStore.defaultCategories.dropFirst() + categoriesStore.customCategories,
+                                categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
                                 onSelectCategory: { cat in onSelectCategory(clip, cat) },
                                 onExpand: {
                                     selectedClip = clip
@@ -460,7 +470,7 @@ private struct CapsuleToggleButtonStyle: ButtonStyle {
 private struct ActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .frame(width: 150, height: 40)
+            .frame(width: 160, height: 40)
             .background(Color.white.opacity(0.08))
             .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
             .cornerRadius(12)
@@ -471,12 +481,22 @@ private struct ActionButtonStyle: ButtonStyle {
 }
 
 // URL field that keeps cursor + paste (long-press) but never shows the keyboard.
+// Wrapper so the URL field doesn't expand layout when text is long (no intrinsic width).
+private final class URLFieldContainer: UIView {
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: 40)
+    }
+}
+
 private struct NoKeyboardURLField: UIViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var placeholderIsError: Bool
 
-    func makeUIView(context: Context) -> UITextField {
+    func makeUIView(context: Context) -> UIView {
+        let container = URLFieldContainer()
+        container.backgroundColor = .clear
+
         let field = UITextField()
         field.delegate = context.coordinator
         field.inputView = UIView()
@@ -489,14 +509,27 @@ private struct NoKeyboardURLField: UIViewRepresentable {
         field.backgroundColor = .clear
         field.borderStyle = .none
         field.contentVerticalAlignment = .center
-        return field
+        field.adjustsFontSizeToFitWidth = false
+        field.clearsOnInsertion = false
+        field.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(field)
+
+        NSLayoutConstraint.activate([
+            field.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            field.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            field.topAnchor.constraint(equalTo: container.topAnchor),
+            field.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        context.coordinator.field = field
+        return container
     }
 
-    func updateUIView(_ uiView: UITextField, context: Context) {
-        if uiView.text != text {
-            uiView.text = text
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let field = context.coordinator.field else { return }
+        if field.text != text {
+            field.text = text
         }
-        uiView.attributedPlaceholder = NSAttributedString(
+        field.attributedPlaceholder = NSAttributedString(
             string: placeholder,
             attributes: [.foregroundColor: placeholderIsError ? UIColor.systemRed : UIColor.white.withAlphaComponent(0.4)]
         )
@@ -508,26 +541,12 @@ private struct NoKeyboardURLField: UIViewRepresentable {
 
     class Coordinator: NSObject, UITextFieldDelegate {
         var parent: NoKeyboardURLField
+        weak var field: UITextField?
         init(_ parent: NoKeyboardURLField) { self.parent = parent }
 
         func textFieldDidChangeSelection(_ textField: UITextField) {
             parent.text = textField.text ?? ""
         }
     }
-}
-
-
-
-#Preview {
-    DashboardView(
-        clips: [],
-        clipsStore: ClipsStore(),
-        vm: MineViewModel(auth: AuthViewModel(), clipsStore: ClipsStore()),
-        selectedClip: .constant(nil),
-        selectedClipNumber: .constant(nil),
-        categoriesStore: CategoriesStore(),
-        userId: nil,
-        onSelectCategory: { _, _ in }
-    )
 }
 

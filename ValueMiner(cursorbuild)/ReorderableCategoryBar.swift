@@ -4,7 +4,6 @@
 //
 //  Created by Michael Alfieri on 1/27/26.
 //
-
 import SwiftUI
 import UIKit
 
@@ -47,14 +46,17 @@ struct ReorderableCategoryBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if isEditing {
-                Button("Done") { isEditing = false }
-                    .font(.system(size: 13, weight: .semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.2))
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                    .padding(.leading, 4)
+                HStack {
+                    Spacer()
+                    Button("Done") { isEditing = false }
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.black.opacity(0.2))
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        .padding(.trailing, 4)
+                }
             }
 
             ReorderableCategoryBarRepresentable(
@@ -67,7 +69,7 @@ struct ReorderableCategoryBar: View {
                 onSelect: onSelect,
                 onDelete: onDelete
             )
-            .frame(height: 44)
+            .frame(height: 48)
         }
     }
 }
@@ -114,10 +116,7 @@ struct ReorderableCategoryBarRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: UICollectionView, context: Context) {
         context.coordinator.parent = self
 
-        if !context.coordinator.didApplyInitialOrder {
-            applyPersistedOrderIfNeeded()
-            context.coordinator.didApplyInitialOrder = true
-        }
+        applyPersistedOrderIfNeeded()
 
         if context.coordinator.isEditing != isEditing {
             context.coordinator.isEditing = isEditing
@@ -133,6 +132,7 @@ struct ReorderableCategoryBarRepresentable: UIViewRepresentable {
         let order = saved.compactMap { UUID(uuidString: $0) }
         let ordered = CategoryOrder.apply(order: order, to: categories)
         categories = ordered
+        CategoryOrder.persist(order: ordered.map(\.id), key: persistenceKey)
     }
 
     // MARK: - Coordinator
@@ -140,7 +140,6 @@ struct ReorderableCategoryBarRepresentable: UIViewRepresentable {
         var parent: ReorderableCategoryBarRepresentable
         weak var collectionView: UICollectionView?
         var isEditing = false
-        var didApplyInitialOrder = false
         private let tapFeedback = UIImpactFeedbackGenerator(style: .light)
         private let editFeedback = UIImpactFeedbackGenerator(style: .medium)
 
@@ -299,7 +298,7 @@ final class CategoryPillCell: UICollectionViewCell {
     private func setup() {
         contentView.backgroundColor = .clear
         container.translatesAutoresizingMaskIntoConstraints = false
-        container.layer.cornerRadius = 16
+        container.layer.cornerRadius = 18
         if #available(iOS 13.0, *) {
             container.layer.cornerCurve = .continuous
         }
@@ -307,7 +306,7 @@ final class CategoryPillCell: UICollectionViewCell {
         container.backgroundColor = UIColor.white.withAlphaComponent(0.08)
 
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        label.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
         label.textColor = UIColor(red: 164/255, green: 93/255, blue: 233/255, alpha: 1)
 
         container.addSubview(label)
@@ -330,10 +329,10 @@ final class CategoryPillCell: UICollectionViewCell {
             container.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             container.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
 
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 9),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -9),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 13),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -13),
 
             deleteButton.widthAnchor.constraint(equalToConstant: 16),
             deleteButton.heightAnchor.constraint(equalToConstant: 16),
@@ -353,12 +352,12 @@ final class CategoryPillCell: UICollectionViewCell {
             let full = "\(titleText) (\(count))"
             let attr = NSMutableAttributedString(string: full, attributes: [
                 .foregroundColor: baseColor,
-                .font: UIFont.systemFont(ofSize: 12, weight: .semibold),
+                .font: UIFont.systemFont(ofSize: 13, weight: .semibold),
             ])
             let countRange = (full as NSString).range(of: "(\(count))")
             attr.addAttributes([
                 .foregroundColor: baseColor.withAlphaComponent(0.6),
-                .font: UIFont.systemFont(ofSize: 12, weight: .regular),
+                .font: UIFont.systemFont(ofSize: 13, weight: .regular),
             ], range: countRange)
             label.attributedText = attr
         } else {
@@ -415,7 +414,9 @@ private enum CategoryOrder {
         let map = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
         let ordered = order.compactMap { map[$0] }
         let remaining = categories.filter { !order.contains($0.id) }
-        return ordered + remaining
+        guard let first = ordered.first else { return ordered + remaining }
+        let rest = ordered.dropFirst()
+        return [first] + remaining + Array(rest)
     }
 }
 

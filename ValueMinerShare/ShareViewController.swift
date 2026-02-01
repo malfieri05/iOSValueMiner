@@ -57,7 +57,7 @@ final class ShareViewController: SLComposeServiceViewController {
                 return
             }
 
-            guard let user = Auth.auth().currentUser else {
+            guard let user = await waitForCurrentUser() else {
                 showErrorAndClose("Please sign in to ScrollMine first.")
                 return
             }
@@ -135,6 +135,17 @@ final class ShareViewController: SLComposeServiceViewController {
 
     private func completeRequest() {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+
+    private func waitForCurrentUser(timeout: TimeInterval = 0.3) async -> User? {
+        let start = Date()
+        while Date().timeIntervalSince(start) < timeout {
+            if let user = Auth.auth().currentUser {
+                return user
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        return Auth.auth().currentUser
     }
 
     private func postSuccessNotificationIfAllowed() async {

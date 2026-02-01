@@ -80,7 +80,7 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showingAddCategory) {
             VStack(spacing: 16) {
-                Text("New folder name")
+                Text("New category name")
                     .font(.headline)
                 TextField("Category name", text: $newCategoryName)
                     .textInputAutocapitalization(.never)
@@ -241,7 +241,7 @@ struct DashboardView: View {
                 TextField(
                     "",
                     text: $newCategoryName,
-                    prompt: Text("New folder name")
+                    prompt: Text("New category name")
                         .font(.system(size: 14))
                         .foregroundColor(.white.opacity(0.4))
                 )
@@ -315,6 +315,9 @@ struct DashboardView: View {
             let pageClips = category.title == "All" ? clips : clips.filter { $0.category == category.title }
             ScrollView {
                 VStack(spacing: 12) {
+                        if category.title == "All" && pageClips.isEmpty {
+                            EmptyClipPlaceholder()
+                        }
                         ForEach(Array(pageClips.enumerated()), id: \.element.id) { clipIndex, clip in
                             let clipNumber = pageClips.count - clipIndex
                             ClipCard(
@@ -348,6 +351,27 @@ struct DashboardView: View {
                     categoriesStore.startListening(userId: uid)
                 }
             }
+        }
+    }
+
+    private struct EmptyClipPlaceholder: View {
+        private let outlineColor = Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9)
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Mine a clip to generate feed!")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(outlineColor, lineWidth: 1.2)
+            )
+            .cornerRadius(16)
         }
     }
 

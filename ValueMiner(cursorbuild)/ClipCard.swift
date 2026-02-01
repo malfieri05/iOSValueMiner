@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import UIKit
+import LinkPresentation
 
 private let clipDateFormatter: DateFormatter = {
     let df = DateFormatter()
@@ -49,12 +50,15 @@ struct ClipCard: View {
                 Spacer()
 
                 Menu {
-                    if let _ = wrapperShareURL() {
+                    if let url = URL(string: clip.url) {
                         Button {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             showShareSheet = true
                         } label: {
-                            Text("Share Clip Link")
+                            HStack(spacing: 6) {
+                                Text("Share Clip Link")
+                                Image(systemName: "square.and.arrow.up")
+                            }
                         }
                     } else {
                         Text("Share Clip Link")
@@ -67,9 +71,9 @@ struct ClipCard: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.55))
-                        .padding(6)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                        .padding(7)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -80,19 +84,24 @@ struct ClipCard: View {
 
             // Row with Clip #, Link, and platform on same line
             HStack(alignment: .firstTextBaseline) {
-                Text("Clip \(clipNumber)")
+                Text("Clip \(clipNumber):")
                     .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                    .underline(true, color: .white.opacity(0.6))
 
                 if let url = URL(string: clip.url) {
-                    Link("Link", destination: url)
-                        .font(.system(size: 12, weight: .medium))
-                        .underline(true, color: .white.opacity(0.6))
-                        .foregroundColor(.white.opacity(0.6))
+                    Link(destination: url) {
+                        Image(systemName: "link")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    }
+                    .simultaneousGesture(TapGesture().onEnded {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    })
                 } else {
-                    Text("Link")
-                        .font(.system(size: 12, weight: .medium))
-                        .underline(true, color: .white.opacity(0.6))
-                        .foregroundColor(.white.opacity(0.6))
+                    Image(systemName: "link")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.35))
                 }
 
                 Spacer()
@@ -137,8 +146,8 @@ struct ClipCard: View {
             Text("Are you sure you want to delete this clip?")
         }
         .sheet(isPresented: $showShareSheet) {
-            if let url = wrapperShareURL() {
-                ShareSheet(activityItems: [url])
+            if let url = URL(string: clip.url) {
+                ShareSheet(activityItems: [ShareItemSource(url: url)])
             }
         }
     }
@@ -156,12 +165,6 @@ struct ClipCard: View {
         guard let first = text.first else { return text }
         return String(first).uppercased() + text.dropFirst()
     }
-
-    private func wrapperShareURL() -> URL? {
-        let encoded = clip.url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-        guard let encoded else { return nil }
-        return URL(string: "https://valueminer.org/s?u=\(encoded)&src=app")
-    }
 }
 
 private struct ShareSheet: UIViewControllerRepresentable {
@@ -172,4 +175,46 @@ private struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+private final class ShareItemSource: NSObject, UIActivityItemSource {
+    private let url: URL
+
+    init(url: URL) {
+        self.url = url
+    }
+
+    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+        url
+    }
+
+    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
+        url
+    }
+
+    func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.originalURL = url
+        metadata.url = url
+        metadata.title = "Saved with ScrollMine"
+
+        if let icon = appIconImage() {
+            metadata.iconProvider = NSItemProvider(object: icon)
+        }
+
+        return metadata
+    }
+
+    private func appIconImage() -> UIImage? {
+        if
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let files = primary["CFBundleIconFiles"] as? [String],
+            let name = files.last,
+            let img = UIImage(named: name)
+        {
+            return img
+        }
+        return UIImage(named: "AppIcon")
+    }
 }

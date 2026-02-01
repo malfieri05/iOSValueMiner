@@ -60,6 +60,9 @@ struct SettingsView: View {
     @State private var clipCount: Int = 0
     @State private var clipCountSinceLastReport: Int = 0
     @State private var lastReportDate: Date?
+    @State private var clipCreatedAt: [Timestamp] = []
+    @State private var clipsListener: ListenerRegistration?
+    @State private var userDocListener: ListenerRegistration?
     @State private var showSettingsMenu = false
     @State private var atLabelWidth: CGFloat = 0
     
@@ -101,8 +104,10 @@ struct SettingsView: View {
                 scrollReportIntervalDays = 3
             }
             loadScrollReportSettings()
-            loadClipCount()
-            loadClipCountSinceLastReport()
+            startLiveClipListeners()
+        }
+        .onDisappear {
+            stopLiveClipListeners()
         }
         .onChange(of: scrollReportEnabled) { _, _ in
             persistScrollReportSettings()
@@ -249,8 +254,9 @@ struct SettingsView: View {
     private var reportCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your scroll report:")
-                .font(.headline)
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(.white)
+                .underline(true, color: .white)
             
             Text("Receive new automated email report of your saved clips per set time period:")
                 .font(.footnote)
@@ -442,12 +448,10 @@ struct SettingsView: View {
             // - Reset "Since last report" to 0 in the UI
             // - Set lastReportDate so subsequent queries treat "now" as the new baseline
             lastReportDate = Date()
-            clipCountSinceLastReport = 0
+            updateCountsFromCache()
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 sendNowStatus = nil
             }
-            loadClipCount()
-            loadClipCountSinceLastReport()
             print("Send report result:", result?.data ?? "")
         }
     }
@@ -522,6 +526,73 @@ struct SettingsView: View {
                 let docs = snapshot?.documents ?? []
                 clipCountSinceLastReport = docs.filter { isValidClipData($0.data()) }.count
             }
+    }
+
+    private func startLiveClipListeners() {
+        guard let uid = userId else { return }
+        stopLiveClipListeners()
+
+        clipsListener = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .collection("clips")
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("Live clip listener error:", error)
+                    return
+                }
+                let docs = snapshot?.documents ?? []
+                clipCreatedAt = docs.compactMap { doc in
+                    let data = doc.data()
+                    guard isValidClipData(data), let createdAt = data["createdAt"] as? Timestamp else {
+                        return nil
+                    }
+                    return createdAt
+                }
+                updateCountsFromCache()
+            }
+
+        userDocListener = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("Live user doc listener error:", error)
+                    return
+                }
+                guard let data = snapshot?.data(),
+                      let report = data["scrollReport"] as? [String: Any]
+                else { return }
+
+                let newLastReportDate: Date?
+                if let lastSent = report["lastSentAt"] as? Timestamp {
+                    newLastReportDate = lastSent.dateValue()
+                } else {
+                    newLastReportDate = nil
+                }
+
+                if newLastReportDate != lastReportDate {
+                    lastReportDate = newLastReportDate
+                    updateCountsFromCache()
+                }
+            }
+    }
+
+    private func stopLiveClipListeners() {
+        clipsListener?.remove()
+        clipsListener = nil
+        userDocListener?.remove()
+        userDocListener = nil
+    }
+
+    private func updateCountsFromCache() {
+        clipCount = clipCreatedAt.count
+        guard let lastReportDate else {
+            clipCountSinceLastReport = clipCount
+            return
+        }
+        let sinceCount = clipCreatedAt.filter { $0.dateValue() > lastReportDate }.count
+        clipCountSinceLastReport = sinceCount
     }
     
     private func isValidClipData(_ data: [String: Any]) -> Bool {

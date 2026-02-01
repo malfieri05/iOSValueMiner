@@ -10,6 +10,7 @@ import Social
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import UserNotifications
 
 final class ShareViewController: SLComposeServiceViewController {
 
@@ -57,12 +58,13 @@ final class ShareViewController: SLComposeServiceViewController {
             }
 
             guard let user = Auth.auth().currentUser else {
-                showErrorAndClose("Please sign in to ValueMiner first.")
+                showErrorAndClose("Please sign in to ScrollMine first.")
                 return
             }
 
             do {
                 try await enqueueClip(urlString: urlString, userId: user.uid)
+                await postSuccessNotificationIfAllowed()
                 completeRequest()
             } catch {
                 showErrorAndClose("Failed to submit. Try again.")
@@ -124,7 +126,7 @@ final class ShareViewController: SLComposeServiceViewController {
     }
 
     private func showErrorAndClose(_ message: String) {
-        let alert = UIAlertController(title: "ValueMiner", message: message, preferredStyle: .alert)
+        let alert = UIAlertController(title: "ScrollMine", message: message, preferredStyle: .alert)
         present(alert, animated: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             self.completeRequest()
@@ -133,6 +135,32 @@ final class ShareViewController: SLComposeServiceViewController {
 
     private func completeRequest() {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+
+    private func postSuccessNotificationIfAllowed() async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "ScrollMine"
+        content.body = "Clip saved to ScrollMine! ✅"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await center.add(request)
+        } catch {
+            print("[ShareExt][Notification] Failed to schedule success notification:", error)
+        }
     }
 
     override func isContentValid() -> Bool { true }

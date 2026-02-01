@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var selectedClipNumber: Int?
     @State private var isLoginMode = false
     @State private var selectedTab = 0
+    @AppStorage("didShowShareSheetIntro") private var didShowShareSheetIntro = false
 
     init() {
         let auth = AuthViewModel()
@@ -35,56 +36,62 @@ struct ContentView: View {
     var body: some View {
         Group {
             if auth.user != nil {
-                TabView(selection: $selectedTab) {
-                    DashboardView(
-                        clips: clipsStore.clips,
-                        clipsStore: clipsStore,
-                        vm: vm,
-                        selectedClip: $selectedClip,
-                        selectedClipNumber: $selectedClipNumber,
-                        categoriesStore: categoriesStore,
-                        userId: auth.userId,
-                        onSelectCategory: { clip, category in
-                            Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                if !didShowShareSheetIntro {
+                    ShareSheetOnboardingView {
+                        didShowShareSheetIntro = true
+                    }
+                } else {
+                    TabView(selection: $selectedTab) {
+                        DashboardView(
+                            clips: clipsStore.clips,
+                            clipsStore: clipsStore,
+                            vm: vm,
+                            selectedClip: $selectedClip,
+                            selectedClipNumber: $selectedClipNumber,
+                            categoriesStore: categoriesStore,
+                            userId: auth.userId,
+                            onSelectCategory: { clip, category in
+                                Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                            }
+                        )
+                        .tabItem { tabItem(systemImage: "bolt.fill") }
+                        .tag(0)
+
+                        SettingsView {
+                            auth.signOut()
+                        }
+                        .tabItem { tabItem(systemImage: "scroll.fill") }
+                        .tag(1)
+                    }
+                    .background(
+                        TabBarHapticsObserver {
+                            lightHaptic()
                         }
                     )
-                    .tabItem { tabItem(systemImage: "bolt.fill") }
-                    .tag(0)
-
-                    SettingsView {
-                        auth.signOut()
-                    }
-                    .tabItem { tabItem(systemImage: "scroll.fill") }
-                    .tag(1)
-                }
-                .background(
-                    TabBarHapticsObserver {
-                        lightHaptic()
-                    }
-                )
-                .overlay(
-                    Group {
-                        if let clip = selectedClip {
-                            ClipDetailModal(
-                                clip: clip,
-                                clipNumber: selectedClipNumber,
-                                categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
-                                onSelectCategory: { category in
-                                    Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
-                                },
-                                onDismiss: {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                                        selectedClip = nil
-                                        selectedClipNumber = nil
+                    .overlay(
+                        Group {
+                            if let clip = selectedClip {
+                                ClipDetailModal(
+                                    clip: clip,
+                                    clipNumber: selectedClipNumber,
+                                    categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
+                                    onSelectCategory: { category in
+                                        Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                                    },
+                                    onDismiss: {
+                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                                            selectedClip = nil
+                                            selectedClipNumber = nil
+                                        }
                                     }
-                                }
-                            )
-                            .transition(.scale(scale: 0.96).combined(with: .opacity))
-                            .zIndex(10)
+                                )
+                                .transition(.scale(scale: 0.96).combined(with: .opacity))
+                                .zIndex(10)
+                            }
                         }
-                    }
-                    .animation(.spring(response: 0.28, dampingFraction: 0.9), value: selectedClip != nil)
-                )
+                        .animation(.spring(response: 0.28, dampingFraction: 0.9), value: selectedClip != nil)
+                    )
+                }
             } else {
                 authView
             }
@@ -93,6 +100,7 @@ struct ContentView: View {
             if let userId = newValue {
                 clipsStore.startListening(userId: userId)
                 categoriesStore.startListening(userId: userId)
+                selectedTab = 0
             } else {
                 clipsStore.stopListening()
                 categoriesStore.stopListening()
@@ -138,7 +146,7 @@ struct ContentView: View {
                     .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 6)
             }
 
-            Text("ValueMiner")
+            Text("ScrollMine")
                 .font(.largeTitle).bold()
                 .foregroundColor(.white)
 
@@ -228,6 +236,171 @@ struct ContentView: View {
     }
 }
 
+private struct ShareSheetOnboardingView: View {
+    let onDismiss: () -> Void
+
+    private let accent = Color(red: 164/255, green: 93/255, blue: 233/255)
+    @State private var currentPage = 0
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                if let icon = appIconImage() {
+                    Image(uiImage: icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 82, height: 82)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(accent.opacity(0.7), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 6)
+                        .padding(.bottom, 6)
+                }
+
+                Text("Save clips without leaving your scroll!")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+
+                Text("Add 'ScrollMine' to your Share Sheet ONCE, then save clips in ONE TAP.")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+
+                TabView(selection: $currentPage) {
+                    ShareSheetSlide(
+                        title: "1) Tap SHARE on any video",
+                        symbol: "square.and.arrow.up"
+                    )
+                    .tag(0)
+
+                    ShareSheetSlide(
+                        title: "2) Swipe to the end of the app row -> tap MORE",
+                        symbol: "ellipsis.circle"
+                    )
+                    .tag(1)
+
+                    ShareSheetSlide(
+                        title: "3) Tap EDIT (top-right)",
+                        symbol: "pencil.circle"
+                    )
+                    .tag(2)
+
+                    ShareSheetSlide(
+                        title: "4) Tap '+' to add ScrollMine to Favorites, then drag ☰ to put reorder priority",
+                        symbol: "line.3.horizontal.decrease.circle"
+                    )
+                    .tag(3)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 240)
+
+                ShareSheetPageDots(total: 4, currentIndex: currentPage)
+
+                Button(action: onDismiss) {
+                    Text("Got it")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(currentPage == 3 ? accent : Color.white.opacity(0.15))
+                        .cornerRadius(12)
+                }
+                .padding(.top, 4)
+                .disabled(currentPage != 3)
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .overlay(
+                RoundedRectangle(cornerRadius: 28)
+                    .stroke(accent.opacity(0.6), lineWidth: 1.4)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+            )
+        }
+    }
+
+    private func appIconImage() -> UIImage? {
+        if
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let files = primary["CFBundleIconFiles"] as? [String],
+            let name = files.last,
+            let img = UIImage(named: name)
+        {
+            return img
+        }
+        return UIImage(named: "AppIcon")
+    }
+}
+
+private struct ShareStepRow: View {
+    let number: String
+    let icon: String?
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(number)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            Text(text)
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.9))
+        }
+    }
+}
+
+private struct ShareSheetSlide: View {
+    let title: String
+    let symbol: String
+
+    private let accent = Color(red: 164/255, green: 93/255, blue: 233/255)
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text(title)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+
+            Image(systemName: symbol)
+                .font(.system(size: 60, weight: .semibold))
+                .foregroundColor(accent)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ShareSheetPageDots: View {
+    let total: Int
+    let currentIndex: Int
+
+    private let accent = Color(red: 164/255, green: 93/255, blue: 233/255)
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<total, id: \.self) { index in
+                Circle()
+                    .fill(index == currentIndex ? accent : Color.white.opacity(0.25))
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .padding(.top, 2)
+    }
+}
+
 private struct TabBarHapticsObserver: UIViewControllerRepresentable {
     let onUserSelect: () -> Void
 
@@ -305,17 +478,22 @@ private struct ClipDetailModal: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(clipNumberText)
                         .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .underline(true, color: .white.opacity(0.6))
 
                     if let url = URL(string: clip.url) {
-                        Link("Link", destination: url)
-                            .font(.system(size: 12, weight: .medium))
-                            .underline(true, color: .white.opacity(0.6))
-                            .foregroundColor(.white.opacity(0.6))
+                        Link(destination: url) {
+                            Image(systemName: "link")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                        }
+                        .simultaneousGesture(TapGesture().onEnded {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        })
                     } else {
-                        Text("Link")
-                            .font(.system(size: 12, weight: .medium))
-                            .underline(true, color: .white.opacity(0.6))
-                            .foregroundColor(.white.opacity(0.6))
+                        Image(systemName: "link")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.35))
                     }
 
                     Text(clip.platform)
@@ -375,7 +553,7 @@ private struct ClipDetailModal: View {
 
     private var clipNumberText: String {
         if let number = clipNumber {
-            return "Clip \(number)"
+            return "Clip \(number):"
         }
         return "Clip"
     }

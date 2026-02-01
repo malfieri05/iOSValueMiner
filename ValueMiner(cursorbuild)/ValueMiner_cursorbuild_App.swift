@@ -9,12 +9,14 @@ import SwiftUI
 import SwiftData
 import FirebaseCore
 import FirebaseAuth
+import UserNotifications
 
 @main
 struct ValueMiner_cursorguild_App: App {
     init() {
         FirebaseApp.configure()
-        try? Auth.auth().useUserAccessGroup("L6HK4D37VH.com.valueminer.shared")
+        try? Auth.auth().useUserAccessGroup("L6HK4D37VH.group.org.valueminer.shared")
+        requestNotificationPermissionIfNeeded()
     }
 
     var sharedModelContainer: ModelContainer = {
@@ -35,5 +37,15 @@ struct ValueMiner_cursorguild_App: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    private func requestNotificationPermissionIfNeeded() {
+        let defaultsKey = "didRequestNotificationPermission"
+        let defaults = UserDefaults.standard
+
+        guard !defaults.bool(forKey: defaultsKey) else { return }
+        defaults.set(true, forKey: defaultsKey)
+
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in }
     }
 }

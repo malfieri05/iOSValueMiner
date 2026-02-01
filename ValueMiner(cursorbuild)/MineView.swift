@@ -32,6 +32,16 @@ struct MineView: View {
                                 onExpand: {
                                     selectedClip = clip
                                     selectedClipNumber = clipNumber
+                                },
+                                onDelete: {
+                                    guard let userId = vm.auth.userId else { return }
+                                    Task {
+                                        do {
+                                            try await clipsStore.deleteClip(userId: userId, clipId: clip.id)
+                                        } catch {
+                                            print("Delete clip error:", error)
+                                        }
+                                    }
                                 }
                             )
                         }

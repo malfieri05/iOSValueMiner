@@ -101,4 +101,13 @@ final class ClipsStore: ObservableObject {
             .document(clipId)
             .updateData(["category": category])
     }
+
+    func deleteClip(userId: String, clipId: String) async throws {
+        try await db
+            .collection("users")
+            .document(userId)
+            .collection("clips")
+            .document(clipId)
+            .delete()
+    }
 }

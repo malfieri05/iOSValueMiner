@@ -325,6 +325,16 @@ struct DashboardView: View {
                                 onExpand: {
                                     selectedClip = clip
                                     selectedClipNumber = clipNumber
+                                },
+                                onDelete: {
+                                    guard let uid = userId else { return }
+                                    Task {
+                                        do {
+                                            try await clipsStore.deleteClip(userId: uid, clipId: clip.id)
+                                        } catch {
+                                            print("Delete clip error:", error)
+                                        }
+                                    }
                                 }
                             )
                         }

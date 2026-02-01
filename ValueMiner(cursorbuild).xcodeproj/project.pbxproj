@@ -69,21 +69,11 @@
 			);
 			target = C47BB6472F26876B00693AC2 /* ValueMinerShare */;
 		};
-		C47BB6592F26878400693AC2 /* Exceptions for "ValueMiner(cursorbuild)" folder in "ValueMinerShare" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"GoogleService-Info.plist",
-			);
-			target = C47BB6472F26876B00693AC2 /* ValueMinerShare */;
-		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C47BB5E92F23F1E700693AC2 /* ValueMiner(cursorbuild) */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C47BB6592F26878400693AC2 /* Exceptions for "ValueMiner(cursorbuild)" folder in "ValueMinerShare" target */,
-			);
 			path = "ValueMiner(cursorbuild)";
 			sourceTree = "<group>";
 		};

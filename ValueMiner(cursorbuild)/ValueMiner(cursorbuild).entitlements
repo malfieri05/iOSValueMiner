@@ -8,7 +8,7 @@
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)L6HK4D37VH.group.org.valueminer.shared</string>
+		<string>$(AppIdentifierPrefix)group.org.valueminer.shared</string>
 	</array>
 </dict>
 </plist>

@@ -65,6 +65,7 @@ struct SettingsView: View {
     @State private var userDocListener: ListenerRegistration?
     @State private var showSettingsMenu = false
     @State private var atLabelWidth: CGFloat = 0
+    @State private var showShareSheetHelp = false
     
     // Match the mined clip cell outline style (ClipCard)
     private let outlineColor = Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9)
@@ -187,8 +188,15 @@ struct SettingsView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .minimumScaleFactor(0.7)
+            Spacer()
+            Button(action: { showShareSheetHelp = true }) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(accentPurple)
+                    .padding(6)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.clear)
@@ -197,6 +205,11 @@ struct SettingsView: View {
                 .stroke(outlineColor, lineWidth: 1.2)
         )
         .cornerRadius(16)
+        .sheet(isPresented: $showShareSheetHelp) {
+            ShareSheetOnboardingView(onDismiss: {
+                showShareSheetHelp = false
+            }, allowsEarlyDismiss: true)
+        }
     }
     
     private var totalClipsCard: some View {

@@ -55,7 +55,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ValueMiner(cursorbuild).app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "ValueMiner(cursorbuild).app"; path = ScrollMine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB5F62F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ValueMiner(cursorbuild)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB6002F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ValueMiner(cursorbuild)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ValueMinerShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };

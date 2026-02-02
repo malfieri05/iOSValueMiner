@@ -20,7 +20,7 @@ final class AuthViewModel: ObservableObject {
 
     init() {
         // Share auth session with share extension via App Group
-        try? Auth.auth().useUserAccessGroup("L6HK4D37VH.group.org.valueminer.shared")
+        try? Auth.auth().useUserAccessGroup("9Q6S64UNWA.group.org.valueminer.shared")
         
         listener = Auth.auth().addStateDidChangeListener { _, user in
             self.user = user

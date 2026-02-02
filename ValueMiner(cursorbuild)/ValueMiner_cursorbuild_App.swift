@@ -15,7 +15,7 @@ import UserNotifications
 struct ValueMiner_cursorguild_App: App {
     init() {
         FirebaseApp.configure()
-        try? Auth.auth().useUserAccessGroup("L6HK4D37VH.group.org.valueminer.shared")
+        try? Auth.auth().useUserAccessGroup("9Q6S64UNWA.group.org.valueminer.shared")
         requestNotificationPermissionIfNeeded()
     }
 

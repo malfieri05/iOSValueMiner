@@ -34,7 +34,7 @@ final class ShareViewController: SLComposeServiceViewController {
         // Enable shared keychain access for Firebase Auth across the app + extensions
         // Make sure this access group exists in both the main app and the extension entitlements
         // and that Keychain Sharing is enabled with this exact identifier.
-        let accessGroup = "L6HK4D37VH.group.org.valueminer.shared"
+        let accessGroup = "9Q6S64UNWA.group.org.valueminer.shared"
         do {
             try Auth.auth().useUserAccessGroup(accessGroup)
             print("[ShareExt][Firebase] Enabled user access group: \(accessGroup)")

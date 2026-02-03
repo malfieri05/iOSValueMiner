@@ -19,7 +19,9 @@ struct ContentView: View {
     @State private var selectedClipNumber: Int?
     @State private var isLoginMode = false
     @State private var selectedTab = 0
+    @State private var mineTabResetCounter = 0
     @AppStorage("didShowShareSheetIntro") private var didShowShareSheetIntro = false
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
 
     init() {
         let auth = AuthViewModel()
@@ -32,6 +34,7 @@ struct ContentView: View {
     }
     
     private let authFormMaxWidth: CGFloat = 360
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         Group {
@@ -48,6 +51,7 @@ struct ContentView: View {
                             vm: vm,
                             selectedClip: $selectedClip,
                             selectedClipNumber: $selectedClipNumber,
+                            mineTabResetCounter: $mineTabResetCounter,
                             categoriesStore: categoriesStore,
                             userId: auth.userId,
                             onSelectCategory: { clip, category in
@@ -64,8 +68,11 @@ struct ContentView: View {
                         .tag(1)
                     }
                     .background(
-                        TabBarHapticsObserver {
+                        TabBarHapticsObserver { index in
                             lightHaptic()
+                            if index == 0 {
+                                mineTabResetCounter += 1
+                            }
                         }
                     )
                     .overlay(
@@ -141,7 +148,7 @@ struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.7), lineWidth: 1)
+                            .stroke(accentColor.opacity(0.7), lineWidth: 1)
                     )
                     .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 6)
             }
@@ -188,7 +195,7 @@ struct ContentView: View {
                     .bold()
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    .background(accentColor)
                     .foregroundColor(.white)
                     .cornerRadius(12)
             }
@@ -199,7 +206,7 @@ struct ContentView: View {
                 Text(isLoginMode
                      ? "Need an account? Create one"
                      : "Already have an account? Log in")
-                    .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                    .foregroundColor(accentColor)
                     .font(.callout)
             }
         }
@@ -238,7 +245,7 @@ struct ContentView: View {
 
 
 private struct TabBarHapticsObserver: UIViewControllerRepresentable {
-    let onUserSelect: () -> Void
+    let onUserSelect: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onUserSelect: onUserSelect)
@@ -258,10 +265,10 @@ private struct TabBarHapticsObserver: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, UITabBarControllerDelegate {
-        private let onUserSelect: () -> Void
+        private let onUserSelect: (Int) -> Void
         private(set) weak var tabBarController: UITabBarController?
 
-        init(onUserSelect: @escaping () -> Void) {
+        init(onUserSelect: @escaping (Int) -> Void) {
             self.onUserSelect = onUserSelect
         }
 
@@ -271,8 +278,11 @@ private struct TabBarHapticsObserver: UIViewControllerRepresentable {
         }
 
         func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-            onUserSelect()
-            return true
+            true
+        }
+
+        func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+            onUserSelect(tabBarController.selectedIndex)
         }
     }
 }
@@ -283,11 +293,14 @@ private struct ClipDetailModal: View {
     let categories: [String]
     let onSelectCategory: (String) -> Void
     let onDismiss: () -> Void
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "M/d/yy"
         return df
     }()
+
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         ZStack {
@@ -303,7 +316,7 @@ private struct ClipDetailModal: View {
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                            .foregroundColor(accentColor)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(Color.white.opacity(0.08))
@@ -321,7 +334,7 @@ private struct ClipDetailModal: View {
                         Link(destination: url) {
                             Image(systemName: "link")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                                .foregroundColor(accentColor)
                         }
                         .simultaneousGesture(TapGesture().onEnded {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -329,7 +342,7 @@ private struct ClipDetailModal: View {
                     } else {
                         Image(systemName: "link")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.35))
+                            .foregroundColor(accentColor.opacity(0.35))
                     }
 
                     Text(clip.platform)
@@ -361,7 +374,7 @@ private struct ClipDetailModal: View {
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6), lineWidth: 1)
+                    .stroke(accentColor.opacity(0.6), lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.25), radius: 18, x: 0, y: 8)
             .frame(maxWidth: 324)
@@ -379,10 +392,10 @@ private struct ClipDetailModal: View {
         } label: {
             Text(clip.category.uppercased())
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                .foregroundColor(accentColor)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.2))
+                .background(accentColor.opacity(0.2))
                 .cornerRadius(14)
         }
     }

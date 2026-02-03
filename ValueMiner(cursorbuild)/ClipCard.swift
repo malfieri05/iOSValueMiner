@@ -24,6 +24,9 @@ struct ClipCard: View {
 
     @State private var showDeleteConfirm = false
     @State private var showShareSheet = false
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -36,10 +39,10 @@ struct ClipCard: View {
                 } label: {
                     Text(clip.category.uppercased())
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                        .foregroundColor(accentColor)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.2))
+                        .background(accentColor.opacity(0.2))
                         .cornerRadius(14)
                         .frame(minWidth: capsuleMinWidth(), alignment: .leading)
                         .lineLimit(1)
@@ -72,7 +75,7 @@ struct ClipCard: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                        .foregroundColor(accentColor)
                         .padding(7)
                         .contentShape(Rectangle())
                 }
@@ -93,7 +96,7 @@ struct ClipCard: View {
                     Link(destination: url) {
                         Image(systemName: "link")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                            .foregroundColor(accentColor)
                     }
                     .simultaneousGesture(TapGesture().onEnded {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -101,7 +104,7 @@ struct ClipCard: View {
                 } else {
                     Image(systemName: "link")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.35))
+                        .foregroundColor(accentColor.opacity(0.35))
                 }
 
                 Spacer()
@@ -130,7 +133,7 @@ struct ClipCard: View {
         .background(Color.clear)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9), lineWidth: 1.2)
+                .stroke(accentColor.opacity(0.9), lineWidth: 1.2)
         )
         .cornerRadius(16)
         .contentShape(Rectangle())

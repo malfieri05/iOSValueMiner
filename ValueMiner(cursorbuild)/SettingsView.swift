@@ -52,7 +52,7 @@ struct SettingsView: View {
     @AppStorage("scrollReportEnabled") private var scrollReportEnabled = false
     // Default schedule interval (used when no setting exists yet)
     @AppStorage("scrollReportIntervalDays") private var scrollReportIntervalDays = 3
-    @AppStorage("scrollReportSendTime") private var scrollReportSendTime = Date()
+    @AppStorage("scrollReportSendTimeInterval") private var scrollReportSendTimeInterval = Date().timeIntervalSince1970
     
     @State private var isHydratingSettings = true
     @State private var isSendingNow = false
@@ -66,10 +66,12 @@ struct SettingsView: View {
     @State private var showSettingsMenu = false
     @State private var atLabelWidth: CGFloat = 0
     @State private var showShareSheetHelp = false
+    @State private var showColorPicker = false
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     
     // Match the mined clip cell outline style (ClipCard)
-    private let outlineColor = Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9)
-    private let accentPurple = Color(red: 164/255, green: 93/255, blue: 233/255)
+    private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
+    private var accentPurple: Color { ThemeColors.color(from: themeAccent) }
     
     var body: some View {
         ZStack {
@@ -138,7 +140,7 @@ struct SettingsView: View {
                     }) {
                         Text("Sign out")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+                            .foregroundColor(accentPurple)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                             .padding(.horizontal, 14)
@@ -146,7 +148,7 @@ struct SettingsView: View {
                             .background(Capsule().fill(Color.black))
                             .overlay(
                                 Capsule()
-                                    .stroke(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6), lineWidth: 1)
+                                    .stroke(accentPurple.opacity(0.6), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -189,6 +191,15 @@ struct SettingsView: View {
                 .truncationMode(.middle)
                 .minimumScaleFactor(0.7)
             Spacer()
+            Button(action: { showColorPicker = true }) {
+                Text("Color")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(accentPurple)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(10)
+            }
             Button(action: { showShareSheetHelp = true }) {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
@@ -209,6 +220,10 @@ struct SettingsView: View {
             ShareSheetOnboardingView(onDismiss: {
                 showShareSheetHelp = false
             }, allowsEarlyDismiss: true)
+        }
+        .sheet(isPresented: $showColorPicker) {
+            ThemeColorPicker(selectedAccent: $themeAccent)
+                .presentationDetents([.medium])
         }
     }
     
@@ -283,7 +298,7 @@ struct SettingsView: View {
                 Spacer()
                 Toggle("", isOn: $scrollReportEnabled)
                     .labelsHidden()
-                    .tint(Color(red: 164/255, green: 93/255, blue: 233/255))
+                .tint(accentPurple)
             }
 
             VStack(alignment: .leading, spacing: 12) {
@@ -366,11 +381,14 @@ struct SettingsView: View {
                                     )
                                     .onPreferenceChange(AtLabelWidthKey.self) { atLabelWidth = $0 }
 
-                                DatePicker(
-                                    "Send time",
-                                    selection: $scrollReportSendTime,
-                                    displayedComponents: .hourAndMinute
-                                )
+                    DatePicker(
+                        "Send time",
+                        selection: Binding(
+                            get: { Date(timeIntervalSince1970: scrollReportSendTimeInterval) },
+                            set: { scrollReportSendTimeInterval = $0.timeIntervalSince1970 }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
                                 .labelsHidden()
                                 .datePickerStyle(.compact)
                             }
@@ -490,8 +508,9 @@ struct SettingsView: View {
             if let interval = report["intervalDays"] as? Int {
                 scrollReportIntervalDays = min(max(interval, 1), 7)
             }
-            if let sendTime = report["sendTime"] as? String {
-                scrollReportSendTime = parseSendTime(sendTime) ?? scrollReportSendTime
+            if let sendTime = report["sendTime"] as? String,
+               let parsed = parseSendTime(sendTime) {
+                scrollReportSendTimeInterval = parsed.timeIntervalSince1970
             }
             if let lastSent = report["lastSentAt"] as? Timestamp {
                 lastReportDate = lastSent.dateValue()
@@ -666,6 +685,11 @@ struct SettingsView: View {
             of: now
         )
     }
+
+    private var scrollReportSendTime: Date {
+        get { Date(timeIntervalSince1970: scrollReportSendTimeInterval) }
+        set { scrollReportSendTimeInterval = newValue.timeIntervalSince1970 }
+    }
     
     private func updateInterval(_ delta: Int) {
         let next = scrollReportIntervalDays + delta
@@ -676,6 +700,60 @@ struct SettingsView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
         generator.impactOccurred()
+    }
+}
+
+private struct ThemeColorPicker: View {
+    @Binding var selectedAccent: String
+    private let columns = [GridItem(.adaptive(minimum: 70), spacing: 12)]
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Choose Color Theme")
+                    .font(.headline)
+                    .foregroundColor(.white)
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(ThemeColors.options, id: \.id) { option in
+                        Button(action: {
+                            selectedAccent = option.id.rawValue
+                        }) {
+                            VStack(spacing: 8) {
+                                Circle()
+                                    .fill(option.color)
+                                    .frame(width: 44, height: 44)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        Group {
+                                            if selectedAccent == option.id.rawValue {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 14, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            }
+                                        }
+                                    )
+                                Text(option.name)
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.85))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.04))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(20)
+        }
     }
 }
 

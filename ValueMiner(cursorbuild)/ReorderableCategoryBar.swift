@@ -307,7 +307,7 @@ final class CategoryPillCell: UICollectionViewCell {
 
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
-        label.textColor = UIColor(red: 164/255, green: 93/255, blue: 233/255, alpha: 1)
+        label.textColor = themeAccentColor()
 
         container.addSubview(label)
         contentView.addSubview(container)
@@ -346,7 +346,7 @@ final class CategoryPillCell: UICollectionViewCell {
         let isAll = title.lowercased() == "all"
         let baseColor = isAll
             ? UIColor.systemGreen
-            : UIColor(red: 164/255, green: 93/255, blue: 233/255, alpha: 1)
+            : themeAccentColor()
         let titleText = title.uppercased()
         if let count = count {
             let full = "\(titleText) (\(count))"
@@ -379,6 +379,11 @@ final class CategoryPillCell: UICollectionViewCell {
         } else {
             stopWiggle()
         }
+    }
+
+    private func themeAccentColor() -> UIColor {
+        let raw = UserDefaults.standard.string(forKey: "themeAccent") ?? ThemeColors.defaultAccent
+        return ThemeColors.uiColor(from: raw)
     }
 
     @objc private func handleDeleteTap() {

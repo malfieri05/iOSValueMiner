@@ -12,8 +12,10 @@ struct ShareSheetOnboardingView: View {
     let onDismiss: () -> Void
     let allowsEarlyDismiss: Bool
 
-    private let accent = Color(red: 164/255, green: 93/255, blue: 233/255)
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @State private var currentPage = 0
+
+    private var accent: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         ZStack {
@@ -121,7 +123,8 @@ private struct ShareSheetSlide: View {
     let title: String
     let symbol: String
 
-    private let accent = Color(red: 164/255, green: 93/255, blue: 233/255)
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    private var accent: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -143,7 +146,8 @@ private struct ShareSheetPageDots: View {
     let total: Int
     let currentIndex: Int
 
-    private let accent = Color(red: 164/255, green: 93/255, blue: 233/255)
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    private var accent: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         HStack(spacing: 6) {

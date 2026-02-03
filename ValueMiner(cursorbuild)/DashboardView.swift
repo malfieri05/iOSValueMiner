@@ -17,6 +17,7 @@ struct DashboardView: View {
     @ObservedObject var vm: MineViewModel
     @Binding var selectedClip: Clip?
     @Binding var selectedClipNumber: Int?
+    @Binding var mineTabResetCounter: Int
     @ObservedObject var categoriesStore: CategoriesStore
     let userId: String?
     let onSelectCategory: (Clip, String) -> Void
@@ -29,6 +30,12 @@ struct DashboardView: View {
     @State private var isAddCategoryExpanded = false
     @State private var newCategoryName: String = ""
     @State private var pendingDeleteCategory: Category?
+    @State private var searchText = ""
+    @State private var searchRowIndex = 0
+    @State private var searchRowProgress: CGFloat = 0
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
     private var orderedCategoryTitles: [String] {
         let allCategory = categoriesStore.defaultCategories.first! // "All"
@@ -70,6 +77,21 @@ struct DashboardView: View {
                 selectedCategoryIndex = 0
                 selectedCategoryId = newCategories.first?.id
             }
+        }
+        .onChange(of: searchRowIndex) { _, newValue in
+            if newValue == 1 {
+                isAddCategoryExpanded = false
+                selectAllCategory()
+            } else {
+                searchText = ""
+            }
+        }
+        .onChange(of: mineTabResetCounter) { _, _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                searchRowIndex = 0
+            }
+            searchText = ""
+            selectAllCategory()
         }
         .onChange(of: scrollProgress) { _, newProgress in
             let idx = Int(round(newProgress))
@@ -184,51 +206,18 @@ struct DashboardView: View {
                 .font(.title2).bold()
                 .foregroundColor(.white)
 
-            HStack(spacing: 8) {
-                NoKeyboardURLField(
-                    text: $vm.urlText,
-                    placeholder: vm.errorMessage ?? "Paste a video URL",
-                    placeholderIsError: vm.errorMessage != nil
-                )
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(12)
-                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
-                .fixedSize(horizontal: false, vertical: true)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                Button {
-                    lightHaptic()
-                    Task { await vm.mine() }
-                } label: {
-                    HStack(spacing: 6) {
-                        if vm.isLoading { ProgressView().tint(.white) }
-                        Text(vm.isLoading ? "Mining..." : "Mine")
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.9)
-                        if !vm.isLoading {
-                            Image(systemName: "bolt")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                    }
+            SwipePagingView(
+                pages: [0, 1],
+                scrollProgress: $searchRowProgress,
+                selectedIndex: $searchRowIndex
+            ) { index, _ in
+                if index == 0 {
+                    mineBarRow
+                } else {
+                    searchBarRow
                 }
-                .buttonStyle(NarrowActionButtonStyle())
-                .disabled(vm.isLoading)
-
-                Button {
-                    lightHaptic()
-                    withAnimation(.easeInOut(duration: 0.25)) { isAddCategoryExpanded.toggle() }
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
-                        .rotationEffect(.degrees(isAddCategoryExpanded ? 90 : 0))
-                        .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
-                }
-                .buttonStyle(CapsuleToggleButtonStyle())
             }
+            .frame(height: 44)
             .background(Color.black)
             .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
 
@@ -275,12 +264,12 @@ struct DashboardView: View {
                             .minimumScaleFactor(0.9)
                         Text("(\(totalCategoryCount))")
                             .font(.system(size: 11, weight: .regular))
-                            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.6))
+                            .foregroundColor(accentColor.opacity(0.6))
                             .lineLimit(1)
                             .minimumScaleFactor(0.9)
                     }
                 }
-                .buttonStyle(ActionButtonStyle())
+                .buttonStyle(ActionButtonStyle(accentColor: accentColor))
                 .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || userId == nil)
             }
             .transition(.move(edge: .top).combined(with: .opacity))
@@ -306,17 +295,142 @@ struct DashboardView: View {
         }
     }
 
+    private var mineBarRow: some View {
+        HStack(spacing: 8) {
+            NoKeyboardURLField(
+                text: $vm.urlText,
+                placeholder: vm.errorMessage ?? "Paste a video URL",
+                placeholderIsError: vm.errorMessage != nil
+            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(12)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+            .fixedSize(horizontal: false, vertical: true)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Button {
+                lightHaptic()
+                Task { await vm.mine() }
+            } label: {
+                HStack(spacing: 6) {
+                    if vm.isLoading { ProgressView().tint(.white) }
+                    Text(vm.isLoading ? "Mining..." : "Mine")
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
+                    if !vm.isLoading {
+                        Image(systemName: "bolt")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                }
+            }
+            .buttonStyle(NarrowActionButtonStyle(accentColor: accentColor))
+            .disabled(vm.isLoading)
+
+            Button {
+                lightHaptic()
+                withAnimation(.easeInOut(duration: 0.25)) { isAddCategoryExpanded.toggle() }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .rotationEffect(.degrees(isAddCategoryExpanded ? 90 : 0))
+                    .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
+            }
+            .buttonStyle(CapsuleToggleButtonStyle())
+        }
+    }
+
+    private var searchBarRow: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(accentColor.opacity(0.8))
+
+                TextField("Search transcripts", text: $searchText)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .foregroundColor(.white)
+                    .onChange(of: searchText) { _, newValue in
+                        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty {
+                            selectAllCategory()
+                        }
+                    }
+
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(12)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    searchRowIndex = 0
+                }
+                searchText = ""
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(10)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(Circle())
+            }
+        }
+    }
+
+    private func selectAllCategory() {
+        guard let allIndex = categories.firstIndex(where: { $0.title == "All" }) else { return }
+        selectedCategoryIndex = allIndex
+        selectedCategoryId = categories[allIndex].id
+        scrollProgress = CGFloat(allIndex)
+    }
+
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func clipsForCategory(_ category: Category) -> [Clip] {
+        let baseClips = category.title == "All"
+            ? clips
+            : clips.filter { $0.category == category.title }
+        let trimmedSearch = trimmedSearchText
+        if trimmedSearch.isEmpty {
+            return baseClips
+        }
+        if category.title == "All" {
+            let query = trimmedSearch.lowercased()
+            return baseClips.filter { $0.transcript.lowercased().contains(query) }
+        }
+        return []
+    }
+
     private var pagerView: some View {
         SwipePagingView(
             pages: categories,
             scrollProgress: $scrollProgress,
             selectedIndex: $selectedCategoryIndex
         ) { _, category in
-            let pageClips = category.title == "All" ? clips : clips.filter { $0.category == category.title }
             ScrollView {
+                let pageClips = clipsForCategory(category)
+                let trimmedSearch = trimmedSearchText
                 VStack(spacing: 12) {
                         if category.title == "All" && pageClips.isEmpty {
-                            EmptyClipPlaceholder()
+                            if trimmedSearch.isEmpty {
+                                EmptyClipPlaceholder()
+                            } else {
+                                SearchEmptyPlaceholder()
+                            }
                         }
                         ForEach(Array(pageClips.enumerated()), id: \.element.id) { clipIndex, clip in
                             let clipNumber = pageClips.count - clipIndex
@@ -355,11 +469,34 @@ struct DashboardView: View {
     }
 
     private struct EmptyClipPlaceholder: View {
-        private let outlineColor = Color(red: 164/255, green: 93/255, blue: 233/255).opacity(0.9)
+        @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+        private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Mine a clip to generate feed!")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(outlineColor, lineWidth: 1.2)
+            )
+            .cornerRadius(16)
+        }
+    }
+
+    private struct SearchEmptyPlaceholder: View {
+        @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+        private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("No matching clips found.")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.white.opacity(0.7))
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -477,11 +614,13 @@ private extension View {
 }
 
 private struct NarrowActionButtonStyle: ButtonStyle {
+    let accentColor: Color
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 112, height: 40)
             .background(Color.white.opacity(0.08))
-            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+            .foregroundColor(accentColor)
             .cornerRadius(12)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
@@ -502,11 +641,13 @@ private struct CapsuleToggleButtonStyle: ButtonStyle {
 }
 
 private struct ActionButtonStyle: ButtonStyle {
+    let accentColor: Color
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 160, height: 40)
             .background(Color.white.opacity(0.08))
-            .foregroundColor(Color(red: 164/255, green: 93/255, blue: 233/255))
+            .foregroundColor(accentColor)
             .cornerRadius(12)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)

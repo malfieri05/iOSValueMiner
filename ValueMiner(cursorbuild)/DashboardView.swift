@@ -699,6 +699,7 @@ private struct NoKeyboardURLField: UIViewRepresentable {
         field.contentVerticalAlignment = .center
         field.adjustsFontSizeToFitWidth = false
         field.clearsOnInsertion = false
+        field.clearButtonMode = .whileEditing
         field.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(field)
 

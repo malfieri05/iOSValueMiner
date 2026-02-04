@@ -47,11 +47,14 @@ final class MineViewModel: ObservableObject {
             return
         }
 
-        let monthlyCount = currentMonthClipCount()
-        if !subscriptionManager.canMine(currentMonthCount: monthlyCount) {
-            infoMessage = "Monthly clip limit reached."
-            showPaywall = true
-            return
+        let isWhitelistedUser = auth.user?.email?.lowercased() == "malfieri05@gmail.com"
+        if !isWhitelistedUser {
+            let monthlyCount = currentMonthClipCount()
+            if !subscriptionManager.canMine(currentMonthCount: monthlyCount) {
+                infoMessage = "Monthly clip limit reached."
+                showPaywall = true
+                return
+            }
         }
 
         isLoading = true

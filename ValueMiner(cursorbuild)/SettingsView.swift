@@ -48,6 +48,7 @@ private struct FloatingPrimaryButtonStyle: ButtonStyle {
 
 struct SettingsView: View {
     let onSignOut: () -> Void
+    let subscriptionManager: SubscriptionManager
     
     @AppStorage("scrollReportEnabled") private var scrollReportEnabled = false
     // Default schedule interval (used when no setting exists yet)
@@ -67,7 +68,10 @@ struct SettingsView: View {
     @State private var atLabelWidth: CGFloat = 0
     @State private var showShareSheetHelp = false
     @State private var showColorPicker = false
+    @State private var showPaywallPreview = false
+    @State private var showLanguagePicker = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage("transcriptLanguage") private var transcriptLanguage = "en"
     
     // Match the mined clip cell outline style (ClipCard)
     private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
@@ -95,6 +99,8 @@ struct SettingsView: View {
                         .padding(.bottom, 24)
                         
                         reportCard
+                        subscriptionCard
+                        languageCard
                     }
                     .padding(.bottom, 24)
                 }
@@ -252,6 +258,72 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
+
+    private var subscriptionCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Subscription")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            HStack {
+                Text("Current plan:")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                Spacer()
+                Text(currentPlanLabel)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            Button(action: openManageSubscriptions) {
+                HStack(spacing: 8) {
+                    Image(systemName: "creditcard.fill")
+                    Text("Manage Subscription")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(accentPurple)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(accentPurple.opacity(0.6), lineWidth: 1)
+                )
+            }
+
+            Button(action: { showPaywallPreview = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill")
+                    Text("Preview Paywall")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.white.opacity(0.85))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.04))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+            }
+        }
+        .padding(16)
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .sheet(isPresented: $showPaywallPreview) {
+            PaywallView(subscriptionManager: subscriptionManager)
+                .presentationDetents([.medium])
+        }
+    }
     
     private var sinceLastReportCard: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -406,10 +478,12 @@ struct SettingsView: View {
             Text("Reports send to \(userEmail)")
                 .font(.footnote)
                 .foregroundColor(.white.opacity(0.6))
+                .frame(maxWidth: .infinity, alignment: .center)
             
             Text("Includes clips mined since your last report.")
                 .font(.footnote)
                 .foregroundColor(.white.opacity(0.6))
+                .frame(maxWidth: .infinity, alignment: .center)
             
             Button {
                 lightHaptic()
@@ -446,6 +520,107 @@ struct SettingsView: View {
         )
         .cornerRadius(16)
         .padding(.horizontal, 16)
+    }
+
+    private var languageCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Transcription Language")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            HStack {
+                Text("Current:")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                Spacer()
+                Text(languageName(for: transcriptLanguage))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            Button(action: { showLanguagePicker = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "globe")
+                    Text("Choose Language")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(accentPurple)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(accentPurple.opacity(0.6), lineWidth: 1)
+                )
+            }
+        }
+        .padding(16)
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .sheet(isPresented: $showLanguagePicker) {
+            LanguagePickerView(
+                selectedLanguage: $transcriptLanguage,
+                options: languageOptions
+            )
+            .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var currentPlanLabel: String {
+        switch subscriptionManager.currentTier {
+        case .free: return "Free"
+        case .starter: return "Starter"
+        case .silver: return "Silver"
+        case .gold: return "Gold"
+        }
+    }
+
+    private func openManageSubscriptions() {
+        guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private var languageOptions: [(code: String, name: String)] {
+        [
+            ("en", "English"),
+            ("es", "Spanish"),
+            ("fr", "French"),
+            ("de", "German"),
+            ("it", "Italian"),
+            ("pt", "Portuguese"),
+            ("nl", "Dutch"),
+            ("sv", "Swedish"),
+            ("da", "Danish"),
+            ("no", "Norwegian"),
+            ("fi", "Finnish"),
+            ("pl", "Polish"),
+            ("cs", "Czech"),
+            ("tr", "Turkish"),
+            ("ru", "Russian"),
+            ("uk", "Ukrainian"),
+            ("ar", "Arabic"),
+            ("he", "Hebrew"),
+            ("hi", "Hindi"),
+            ("id", "Indonesian"),
+            ("ms", "Malay"),
+            ("th", "Thai"),
+            ("vi", "Vietnamese"),
+            ("ja", "Japanese"),
+            ("ko", "Korean"),
+            ("zh", "Chinese"),
+            ("el", "Greek")
+        ]
+    }
+
+    private func languageName(for code: String) -> String {
+        languageOptions.first(where: { $0.code == code })?.name ?? "English"
     }
     
     private var userEmail: String {

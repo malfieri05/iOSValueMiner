@@ -7,6 +7,8 @@
 
 import SwiftUI
 import UIKit
+import AVFoundation
+import AVKit
 
 struct ShareSheetOnboardingView: View {
     let onDismiss: () -> Void
@@ -14,6 +16,7 @@ struct ShareSheetOnboardingView: View {
 
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @State private var currentPage = 0
+    @State private var showVideoFullscreen = false
 
     private var accent: Color { ThemeColors.color(from: themeAccent) }
 
@@ -38,14 +41,34 @@ struct ShareSheetOnboardingView: View {
                 }
 
                 Text("Save clips without leaving your scroll!")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Text("Add 'ScrollMine' to your Share Sheet ONCE, then save clips in ONE TAP.")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundColor(.white.opacity(0.8))
-                    .multilineTextAlignment(.center)
+                LoopingVideoView(
+                    resourceName: "Onboarding Instructions",
+                    fileExtension: "mov"
+                )
+                .frame(height: 160)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(accent.opacity(0.25), lineWidth: 1)
+                )
+                .overlay(alignment: .topTrailing) {
+                    Button(action: { showVideoFullscreen = true }) {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.black.opacity(0.5))
+                            .clipShape(Circle())
+                    }
+                    .padding(8)
+                }
 
                 TabView(selection: $currentPage) {
                     ShareSheetSlide(
@@ -96,6 +119,12 @@ struct ShareSheetOnboardingView: View {
                     .stroke(accent.opacity(0.6), lineWidth: 1.4)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
+            )
+        }
+        .fullScreenCover(isPresented: $showVideoFullscreen) {
+            FullscreenPlayerView(
+                resourceName: "Onboarding Instructions",
+                fileExtension: "mov"
             )
         }
     }
@@ -159,4 +188,104 @@ private struct ShareSheetPageDots: View {
         }
         .padding(.top, 2)
     }
+}
+
+private struct LoopingVideoView: View {
+    let resourceName: String
+    let fileExtension: String
+
+    var body: some View {
+        if let url = Bundle.main.url(forResource: resourceName, withExtension: fileExtension) {
+            LoopingPlayerRepresentable(url: url)
+        } else {
+            ZStack {
+                Color.white.opacity(0.04)
+                Text("Video not found")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+        }
+    }
+}
+
+private struct FullscreenPlayerView: View {
+    let resourceName: String
+    let fileExtension: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            if let url = Bundle.main.url(forResource: resourceName, withExtension: fileExtension) {
+                PlayerViewControllerRepresentable(url: url)
+                    .ignoresSafeArea()
+            } else {
+                Text("Video not found")
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(16)
+                Spacer()
+            }
+        }
+    }
+}
+
+private struct LoopingPlayerRepresentable: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let item = AVPlayerItem(url: url)
+        let queuePlayer = AVQueuePlayer(items: [item])
+        let looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        let controller = AVPlayerViewController()
+        controller.player = queuePlayer
+        controller.showsPlaybackControls = true
+        controller.videoGravity = .resizeAspect
+        context.coordinator.queuePlayer = queuePlayer
+        context.coordinator.looper = looper
+        queuePlayer.play()
+        queuePlayer.isMuted = true
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        var queuePlayer: AVQueuePlayer?
+        var looper: AVPlayerLooper?
+    }
+}
+
+private struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let player = AVPlayer(url: url)
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.showsPlaybackControls = true
+        controller.videoGravity = .resizeAspect
+        player.play()
+        player.isMuted = true
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {}
 }

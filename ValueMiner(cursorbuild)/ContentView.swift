@@ -14,6 +14,7 @@ struct ContentView: View {
     @StateObject private var clipsStore = ClipsStore()
     @StateObject private var categoriesStore = CategoriesStore()
     @StateObject private var vm: MineViewModel
+    @StateObject private var subscriptionManager: SubscriptionManager
 
     @State private var selectedClip: Clip?
     @State private var selectedClipNumber: Int?
@@ -27,10 +28,12 @@ struct ContentView: View {
         let auth = AuthViewModel()
         let store = ClipsStore()
         let categories = CategoriesStore()
+        let subscriptions = SubscriptionManager()
         _auth = StateObject(wrappedValue: auth)
         _clipsStore = StateObject(wrappedValue: store)
         _categoriesStore = StateObject(wrappedValue: categories)
-        _vm = StateObject(wrappedValue: MineViewModel(auth: auth, clipsStore: store))
+        _subscriptionManager = StateObject(wrappedValue: subscriptions)
+        _vm = StateObject(wrappedValue: MineViewModel(auth: auth, clipsStore: store, subscriptionManager: subscriptions))
     }
     
     private let authFormMaxWidth: CGFloat = 360
@@ -61,9 +64,12 @@ struct ContentView: View {
                         .tabItem { tabItem(systemImage: "bolt.fill") }
                         .tag(0)
 
-                        SettingsView {
-                            auth.signOut()
-                        }
+                        SettingsView(
+                            onSignOut: {
+                                auth.signOut()
+                            },
+                            subscriptionManager: subscriptionManager
+                        )
                         .tabItem { tabItem(systemImage: "scroll.fill") }
                         .tag(1)
                     }

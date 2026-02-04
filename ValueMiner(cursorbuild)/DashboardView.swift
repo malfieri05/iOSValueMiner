@@ -32,7 +32,6 @@ struct DashboardView: View {
     @State private var pendingDeleteCategory: Category?
     @State private var searchText = ""
     @State private var searchRowIndex = 0
-    @State private var searchRowProgress: CGFloat = 0
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
@@ -52,6 +51,7 @@ struct DashboardView: View {
     private var deletableTitles: Set<String> {
         Set(categoriesStore.customCategories)
     }
+
 
     var body: some View {
         ZStack {
@@ -131,6 +131,10 @@ struct DashboardView: View {
             .padding()
             .presentationDetents([.height(220)])
         }
+        .sheet(isPresented: $vm.showPaywall) {
+            PaywallView(subscriptionManager: vm.subscriptionManager)
+                .presentationDetents([.medium])
+        }
         .alert(item: $pendingDeleteCategory) { category in
             Alert(
                 title: Text("Remove \(category.title)?"),
@@ -202,21 +206,30 @@ struct DashboardView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Your Mine.")
-                .font(.title2).bold()
-                .foregroundColor(.white)
+            HStack(alignment: .center) {
+                Text("Your Mine.")
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
 
-            SwipePagingView(
-                pages: [0, 1],
-                scrollProgress: $searchRowProgress,
-                selectedIndex: $searchRowIndex
-            ) { index, _ in
-                if index == 0 {
-                    mineBarRow
-                } else {
-                    searchBarRow
+                Spacer()
+
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(searchRowIndex == 0 ? accentColor : Color.white.opacity(0.3))
+                        .frame(width: 5, height: 5)
+                    Circle()
+                        .fill(searchRowIndex == 1 ? accentColor : Color.white.opacity(0.3))
+                        .frame(width: 5, height: 5)
                 }
             }
+
+            TabView(selection: $searchRowIndex) {
+                mineBarRow
+                    .tag(0)
+                searchBarRow
+                    .tag(1)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 44)
             .background(Color.black)
             .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)

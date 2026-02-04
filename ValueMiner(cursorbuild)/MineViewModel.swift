@@ -14,13 +14,16 @@ final class MineViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var infoMessage: String?
+    @Published var showPaywall: Bool = false
 
     let auth: AuthViewModel
     let clipsStore: ClipsStore
+    let subscriptionManager: SubscriptionManager
 
-    init(auth: AuthViewModel, clipsStore: ClipsStore) {
+    init(auth: AuthViewModel, clipsStore: ClipsStore, subscriptionManager: SubscriptionManager) {
         self.auth = auth
         self.clipsStore = clipsStore
+        self.subscriptionManager = subscriptionManager
     }
 
     func mine() async {
@@ -44,11 +47,19 @@ final class MineViewModel: ObservableObject {
             return
         }
 
+        let monthlyCount = currentMonthClipCount()
+        if !subscriptionManager.canMine(currentMonthCount: monthlyCount) {
+            infoMessage = "Monthly clip limit reached."
+            showPaywall = true
+            return
+        }
+
         isLoading = true
         defer { isLoading = false }
 
         do {
-            let transcript = try await SearchAPI.fetchTranscript(for: trimmed)
+            let lang = UserDefaults.standard.string(forKey: "transcriptLanguage") ?? "en"
+            let transcript = try await SearchAPI.fetchTranscript(for: trimmed, lang: lang)
             let platform = detectPlatform(from: trimmed)
             try await clipsStore.addClip(
                 userId: userId,
@@ -85,5 +96,11 @@ final class MineViewModel: ObservableObject {
         if lower.contains("x.com") || lower.contains("twitter.com") { return "X" }
         if lower.contains("facebook.com") { return "Facebook" }
         return "Other"
+    }
+
+    private func currentMonthClipCount() -> Int {
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
+        return clipsStore.clips.filter { $0.createdAt >= startOfMonth }.count
     }
 }

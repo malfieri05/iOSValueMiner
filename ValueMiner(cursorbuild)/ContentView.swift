@@ -8,6 +8,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import AuthenticationServices
 
 struct ContentView: View {
     @StateObject private var auth = AuthViewModel()
@@ -21,6 +22,7 @@ struct ContentView: View {
     @State private var isLoginMode = false
     @State private var selectedTab = 0
     @State private var mineTabResetCounter = 0
+    @State private var appleNonce: String?
     @AppStorage("didShowShareSheetIntro") private var didShowShareSheetIntro = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
 
@@ -46,6 +48,8 @@ struct ContentView: View {
                     ShareSheetOnboardingView(onDismiss: {
                         didShowShareSheetIntro = true
                     }, allowsEarlyDismiss: false)
+                } else if auth.requiresEmailVerification {
+                    VerifyEmailView(auth: auth)
                 } else {
                     TabView(selection: $selectedTab) {
                         DashboardView(
@@ -125,22 +129,19 @@ struct ContentView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            // Center the INPUTS on screen (simple + reliable),
-            // then place header above and actions below.
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                authInputs
-                Spacer(minLength: 0)
+            ScrollView {
+                VStack(spacing: 20) {
+                    Spacer(minLength: 0)
+                    authHeader
+                    authInputs
+                    authActions
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height * 0.75)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 24)
             }
-            .padding()
-            .overlay(alignment: .center) {
-                authHeader
-                    .offset(y: -160)
-            }
-            .overlay(alignment: .center) {
-                authActions
-                    .offset(y: 120)
-            }
+            .scrollDismissesKeyboard(.interactively)
         }
     }
 
@@ -193,6 +194,9 @@ struct ContentView: View {
             if let error = auth.authError {
                 Text(error).foregroundColor(.red).font(.callout)
             }
+            if let info = auth.authInfo {
+                Text(info).foregroundColor(.white.opacity(0.7)).font(.callout)
+            }
 
             Button {
                 Task { isLoginMode ? await auth.signIn() : await auth.signUp() }
@@ -215,8 +219,52 @@ struct ContentView: View {
                     .foregroundColor(accentColor)
                     .font(.callout)
             }
+
+            if isLoginMode {
+                Button {
+                    Task { await auth.sendPasswordReset() }
+                } label: {
+                    Text("Forgot password?")
+                        .foregroundColor(.white.opacity(0.7))
+                        .font(.callout)
+                }
+                .padding(.top, 2)
+
+                authProviderButtons
+            }
         }
         .frame(maxWidth: authFormMaxWidth)
+    }
+
+    private var authProviderButtons: some View {
+        VStack(spacing: 10) {
+            SignInWithAppleButton(.signIn) { request in
+                let nonce = auth.randomNonceString()
+                appleNonce = nonce
+                request.requestedScopes = [.email]
+                request.nonce = auth.sha256(nonce)
+            } onCompletion: { result in
+                switch result {
+                case .success(let authResult):
+                    guard
+                        let credential = authResult.credential as? ASAuthorizationAppleIDCredential,
+                        let tokenData = credential.identityToken,
+                        let token = String(data: tokenData, encoding: .utf8),
+                        let nonce = appleNonce
+                    else {
+                        auth.showError("Apple sign-in failed.")
+                        return
+                    }
+                    Task { await auth.signInWithApple(idToken: token, nonce: nonce, fullName: credential.fullName) }
+                case .failure:
+                    auth.showError("Apple sign-in failed.")
+                }
+            }
+            .signInWithAppleButtonStyle(.white)
+            .frame(height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(.top, 6)
     }
 
     private var appIconUIImage: UIImage? {
@@ -246,6 +294,71 @@ struct ContentView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
         generator.impactOccurred()
+    }
+}
+
+private struct VerifyEmailView: View {
+    @ObservedObject var auth: AuthViewModel
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Text("Verify your email")
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
+
+                Text("We sent a verification link to your email. Please verify to continue.")
+                    .font(.callout)
+                    .foregroundColor(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+
+                Button {
+                    Task { await auth.resendVerificationEmail() }
+                } label: {
+                    Text("Resend verification email")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(Color.white.opacity(0.12))
+                        .cornerRadius(12)
+                }
+
+                Button {
+                    Task { await auth.refreshUser() }
+                } label: {
+                    Text("I've verified")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.black)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                }
+
+                Button {
+                    auth.signOut()
+                } label: {
+                    Text("Sign out")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(.top, 4)
+
+                if let error = auth.authError {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.footnote)
+                } else if let info = auth.authInfo {
+                    Text(info)
+                        .foregroundColor(.white.opacity(0.7))
+                        .font(.footnote)
+                }
+            }
+            .padding(24)
+        }
     }
 }
 

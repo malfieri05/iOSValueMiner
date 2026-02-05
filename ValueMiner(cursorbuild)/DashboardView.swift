@@ -206,12 +206,13 @@ struct DashboardView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center) {
-                Text("Your Mine.")
-                    .font(.title2).bold()
-                    .foregroundColor(.white)
-
-                Spacer()
+            ZStack {
+                HStack {
+                    Text("Your Mine.")
+                        .font(.title2).bold()
+                        .foregroundColor(.white)
+                    Spacer()
+                }
 
                 HStack(spacing: 6) {
                     Circle()

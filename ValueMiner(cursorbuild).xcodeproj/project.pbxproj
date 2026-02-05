@@ -55,7 +55,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "ValueMiner(cursorbuild).app"; path = ScrollMine.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47BB5E72F23F1E700693AC2 /* ScrollMine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScrollMine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB5F62F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ValueMiner(cursorbuild)Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB6002F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ValueMiner(cursorbuild)UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ValueMinerShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -150,7 +150,7 @@
 		C47BB5E82F23F1E700693AC2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */,
+				C47BB5E72F23F1E700693AC2 /* ScrollMine.app */,
 				C47BB5F62F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests.xctest */,
 				C47BB6002F23F1EA00693AC2 /* ValueMiner(cursorbuild)UITests.xctest */,
 				C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */,
@@ -192,7 +192,7 @@
 				C406B9D02F2BBE120040C750 /* FirebaseFunctions */,
 			);
 			productName = "ValueMiner(cursorbuild)";
-			productReference = C47BB5E72F23F1E700693AC2 /* ValueMiner(cursorbuild).app */;
+			productReference = C47BB5E72F23F1E700693AC2 /* ScrollMine.app */;
 			productType = "com.apple.product-type.application";
 		};
 		C47BB5F52F23F1EA00693AC2 /* ValueMiner(cursorbuild)Tests */ = {
@@ -303,6 +303,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				C41DD4482F34DBC10011764D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C47BB5E82F23F1E700693AC2 /* Products */;
@@ -544,6 +545,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "valueminer.ValueMiner-cursorbuild-";
 				PRODUCT_NAME = ScrollMine;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -578,6 +582,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "valueminer.ValueMiner-cursorbuild-";
 				PRODUCT_NAME = ScrollMine;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -780,6 +787,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		C41DD4482F34DBC10011764D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
 		C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";

@@ -70,6 +70,13 @@ struct SettingsView: View {
     @State private var showColorPicker = false
     @State private var showPaywallPreview = false
     @State private var showLanguagePicker = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var isDeletingAccount = false
+    @State private var deleteAccountStatus: String?
+    @State private var showAccountSheet = false
+    @State private var newAccountEmail = ""
+    @State private var accountStatus: String?
+    @State private var isUpdatingAccount = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage("transcriptLanguage") private var transcriptLanguage = "en"
     
@@ -101,6 +108,7 @@ struct SettingsView: View {
                         reportCard
                         subscriptionCard
                         languageCard
+                        accountManagementCard
                     }
                     .padding(.bottom, 24)
                 }
@@ -187,15 +195,22 @@ struct SettingsView: View {
     
     private var accountEmailBar: some View {
         HStack(spacing: 6) {
-            Text("Account:")
-                .font(.system(size: 13, weight: .semibold))
+            Button(action: { showAccountSheet = true }) {
+                HStack(spacing: 6) {
+                    Text("Account:")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(userEmail)
+                        .font(.system(size: 13, weight: .regular))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .minimumScaleFactor(0.7)
+                }
                 .foregroundColor(.white)
-            Text(userEmail)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundColor(.white.opacity(0.8))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(999)
+            }
             Spacer()
             Button(action: { showColorPicker = true }) {
                 Text("Color")
@@ -230,6 +245,17 @@ struct SettingsView: View {
         .sheet(isPresented: $showColorPicker) {
             ThemeColorPicker(selectedAccent: $themeAccent)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showAccountSheet) {
+            AccountSettingsSheet(
+                currentEmail: userEmail,
+                newEmail: $newAccountEmail,
+                status: $accountStatus,
+                isUpdating: $isUpdatingAccount,
+                onUpdateEmail: updateAccountEmail,
+                onResetPassword: sendPasswordResetEmail
+            )
+            .presentationDetents([.medium])
         }
     }
     
@@ -573,6 +599,56 @@ struct SettingsView: View {
         }
     }
 
+    private var accountManagementCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Account Management")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            Button(role: .destructive, action: { showDeleteAccountConfirm = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                    Text(isDeletingAccount ? "Deleting..." : "Delete Account")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.red)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.red.opacity(0.6), lineWidth: 1)
+                )
+            }
+            .disabled(isDeletingAccount)
+
+            if let status = deleteAccountStatus {
+                Text(status)
+                    .font(.footnote)
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+        .padding(16)
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(outlineColor, lineWidth: 1.2)
+        )
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .alert("Delete account?", isPresented: $showDeleteAccountConfirm) {
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete your account and all saved clips.")
+        }
+    }
+
     private var currentPlanLabel: String {
         switch subscriptionManager.currentTier {
         case .free: return "Free"
@@ -621,6 +697,103 @@ struct SettingsView: View {
 
     private func languageName(for code: String) -> String {
         languageOptions.first(where: { $0.code == code })?.name ?? "English"
+    }
+
+    private func deleteAccount() {
+        guard let user = Auth.auth().currentUser else {
+            deleteAccountStatus = "No signed-in user."
+            return
+        }
+        isDeletingAccount = true
+        deleteAccountStatus = nil
+        Task {
+            do {
+                if let uid = userId {
+                    try await deleteUserData(userId: uid)
+                }
+                try await user.delete()
+                deleteAccountStatus = "Account deleted."
+            } catch {
+                let nsError = error as NSError
+                if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                    deleteAccountStatus = "Please sign out and sign back in, then try again."
+                } else {
+                    deleteAccountStatus = "Failed to delete account."
+                }
+                print("Delete account error:", error)
+            }
+            isDeletingAccount = false
+        }
+    }
+
+    private func deleteUserData(userId: String) async throws {
+        let db = Firestore.firestore()
+        let userRef = db.collection("users").document(userId)
+
+        // Delete clips
+        let clipsSnapshot = try await userRef.collection("clips").getDocuments()
+        for doc in clipsSnapshot.documents {
+            try await doc.reference.delete()
+        }
+
+        // Delete categories
+        let categoriesSnapshot = try await userRef.collection("categories").getDocuments()
+        for doc in categoriesSnapshot.documents {
+            try await doc.reference.delete()
+        }
+
+        // Delete user document
+        try await userRef.delete()
+    }
+
+    private func updateAccountEmail() {
+        let trimmed = newAccountEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            accountStatus = "Enter a new email address."
+            return
+        }
+        guard let user = Auth.auth().currentUser else {
+            accountStatus = "No signed-in user."
+            return
+        }
+
+        isUpdatingAccount = true
+        accountStatus = nil
+        Task {
+            do {
+                try await user.updateEmail(to: trimmed)
+                accountStatus = "Email updated."
+            } catch {
+                let nsError = error as NSError
+                if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                    accountStatus = "Please sign out and sign back in, then try again."
+                } else {
+                    accountStatus = "Failed to update email."
+                }
+                print("Update email error:", error)
+            }
+            isUpdatingAccount = false
+        }
+    }
+
+    private func sendPasswordResetEmail() {
+        let email = userEmail
+        guard !email.isEmpty else {
+            accountStatus = "No email on file."
+            return
+        }
+        isUpdatingAccount = true
+        accountStatus = nil
+        Task {
+            do {
+                try await Auth.auth().sendPasswordReset(withEmail: email)
+                accountStatus = "Password reset email sent."
+            } catch {
+                accountStatus = "Failed to send reset email."
+                print("Password reset error:", error)
+            }
+            isUpdatingAccount = false
+        }
     }
     
     private var userEmail: String {
@@ -875,6 +1048,86 @@ struct SettingsView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
         generator.impactOccurred()
+    }
+}
+
+private struct AccountSettingsSheet: View {
+    let currentEmail: String
+    @Binding var newEmail: String
+    @Binding var status: String?
+    @Binding var isUpdating: Bool
+    let onUpdateEmail: () -> Void
+    let onResetPassword: () -> Void
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+
+    var body: some View {
+        ZStack {
+            Color.clear.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Text("Account Settings")
+                    .font(.headline)
+                    .foregroundColor(.white)
+
+                Text("Current email: \(currentEmail)")
+                    .font(.footnote)
+                    .foregroundColor(.white.opacity(0.8))
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                TextField("New email address", text: $newEmail)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .padding(12)
+                    .background(Color.white.opacity(0.12))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+
+                Button(action: onUpdateEmail) {
+                    Text(isUpdating ? "Updating..." : "Update Email")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(Color.white.opacity(0.18))
+                        .cornerRadius(12)
+                }
+                .disabled(isUpdating)
+
+                Button(action: onResetPassword) {
+                    Text("Send Password Reset")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(Color.white.opacity(0.14))
+                        .cornerRadius(12)
+                }
+                .disabled(isUpdating)
+
+                if let status = status {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(accentColor.opacity(0.7), lineWidth: 1)
+            )
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+        }
     }
 }
 

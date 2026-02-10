@@ -133,7 +133,7 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $vm.showPaywall) {
             PaywallView(subscriptionManager: vm.subscriptionManager)
-                .presentationDetents([.medium])
+                .presentationDetents([.fraction(0.9)])
         }
         .alert(item: $pendingDeleteCategory) { category in
             Alert(

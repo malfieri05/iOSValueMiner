@@ -109,6 +109,14 @@ struct SettingsView: View {
                         subscriptionCard
                         languageCard
                         accountManagementCard
+
+                        Text("ScrollMiner saves links and text transcripts only. No video or audio is downloaded.")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
                     }
                     .padding(.bottom, 24)
                 }
@@ -347,7 +355,7 @@ struct SettingsView: View {
         .padding(.horizontal, 16)
         .sheet(isPresented: $showPaywallPreview) {
             PaywallView(subscriptionManager: subscriptionManager)
-                .presentationDetents([.medium])
+                .presentationDetents([.fraction(0.9)])
         }
     }
     

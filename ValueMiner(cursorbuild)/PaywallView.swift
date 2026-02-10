@@ -12,6 +12,7 @@ struct PaywallView: View {
     @ObservedObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @State private var productsLoadFailed = false
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
@@ -19,17 +20,111 @@ struct PaywallView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                Text("Keep Mining Clips")
-                    .font(.title2).bold()
-                    .foregroundColor(.white)
+            if #available(iOS 17.0, *) {
+                subscriptionStoreContent
+            } else {
+                legacyPaywallContent
+            }
+        }
+        .task {
+            await subscriptionManager.loadProducts()
+            await subscriptionManager.refreshEntitlements()
+            if subscriptionManager.products.isEmpty {
+                productsLoadFailed = true
+            }
+        }
+        .onChange(of: subscriptionManager.currentTier) { _, newTier in
+            if newTier != .free {
+                dismiss()
+            }
+        }
+    }
 
-                Text("You’ve reached the free limit of \(subscriptionManager.freeMonthlyLimit) clips this month.")
-                    .font(.callout)
+    @available(iOS 17.0, *)
+    @ViewBuilder
+    private var subscriptionStoreContent: some View {
+        subscriptionStoreViewWithPolicyLinks
+    }
+
+    @available(iOS 17.0, *)
+    @ViewBuilder
+    private var subscriptionStoreViewWithPolicyLinks: some View {
+        if let privacy = Config.privacyPolicyURL, let terms = Config.termsOfUseURL {
+            SubscriptionStoreView(productIDs: SubscriptionManager.subscriptionProductIDs) { paywallHeader }
+                .subscriptionStoreButtonLabel(.multiline)
+                .storeButton(.visible, for: .restorePurchases)
+                .subscriptionStorePolicyDestination(url: privacy, for: .privacyPolicy)
+                .subscriptionStorePolicyDestination(url: terms, for: .termsOfService)
+        } else if let privacy = Config.privacyPolicyURL {
+            SubscriptionStoreView(productIDs: SubscriptionManager.subscriptionProductIDs) { paywallHeader }
+                .subscriptionStoreButtonLabel(.multiline)
+                .storeButton(.visible, for: .restorePurchases)
+                .subscriptionStorePolicyDestination(url: privacy, for: .privacyPolicy)
+        } else if let terms = Config.termsOfUseURL {
+            SubscriptionStoreView(productIDs: SubscriptionManager.subscriptionProductIDs) { paywallHeader }
+                .subscriptionStoreButtonLabel(.multiline)
+                .storeButton(.visible, for: .restorePurchases)
+                .subscriptionStorePolicyDestination(url: terms, for: .termsOfService)
+        } else {
+            SubscriptionStoreView(productIDs: SubscriptionManager.subscriptionProductIDs) { paywallHeader }
+                .subscriptionStoreButtonLabel(.multiline)
+                .storeButton(.visible, for: .restorePurchases)
+        }
+    }
+
+    private var paywallHeader: some View {
+        Text("You've reached your monthly usage limit.")
+            .font(.title2).bold()
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 2)
+    }
+
+    /// Fallback when SubscriptionStoreView is not available (pre–iOS 17).
+    private var legacyPaywallContent: some View {
+        VStack(spacing: 18) {
+            paywallHeader
+
+            if Config.privacyPolicyURL != nil || Config.termsOfUseURL != nil {
+                HStack(spacing: 16) {
+                    if let url = Config.termsOfUseURL {
+                        Link("Terms of Use", destination: url)
+                            .font(.caption)
+                            .foregroundColor(accentColor)
+                    }
+                    if let url = Config.privacyPolicyURL {
+                        Link("Privacy Policy", destination: url)
+                            .font(.caption)
+                            .foregroundColor(accentColor)
+                    }
+                }
+            }
+
+            if subscriptionManager.products.isEmpty && !productsLoadFailed {
+                ProgressView()
+                    .tint(.white)
+                    .padding()
+                Text("Loading subscription options…")
+                    .font(.subheadline)
                     .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-
+            } else if subscriptionManager.products.isEmpty {
+                VStack(spacing: 12) {
+                    Text("Subscription options couldn’t be loaded.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                    Button("Retry") {
+                        productsLoadFailed = false
+                        Task {
+                            await subscriptionManager.loadProducts()
+                            await subscriptionManager.refreshEntitlements()
+                        }
+                    }
+                    .foregroundColor(accentColor)
+                }
+                .padding()
+            } else {
                 VStack(spacing: 10) {
                     ForEach(subscriptionManager.products, id: \.id) { product in
                         Button {
@@ -59,24 +154,9 @@ struct PaywallView: View {
                         }
                     }
                 }
-
-                Button("Not now") {
-                    dismiss()
-                }
-                .foregroundColor(.white.opacity(0.6))
-                .padding(.top, 4)
-            }
-            .padding(20)
-        }
-        .task {
-            await subscriptionManager.loadProducts()
-            await subscriptionManager.refreshEntitlements()
-        }
-        .onChange(of: subscriptionManager.currentTier) { _, newTier in
-            if newTier != .free {
-                dismiss()
             }
         }
+        .padding(20)
     }
 
     private func clipsSummary(for productId: String) -> String {
@@ -84,6 +164,7 @@ struct PaywallView: View {
         if let limit = plan.clipsPerMonth {
             return "\(limit) clips / month"
         }
-        return "Unlimited clips"
+        return "450 clips / month"
     }
 }
+

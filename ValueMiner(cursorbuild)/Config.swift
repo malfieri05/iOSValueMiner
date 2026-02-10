@@ -31,4 +31,27 @@ enum Config {
         }
         return key.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    // Required for App Store Guideline 3.1.2. Replace with your real URLs before submission.
+    static var privacyPolicyURL: URL? {
+        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
+              let data = try? Data(contentsOf: url),
+              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let s = dict["PRIVACY_POLICY_URL"] as? String,
+              !s.isEmpty,
+              let u = URL(string: s.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        return u
+    }
+
+    static var termsOfUseURL: URL? {
+        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
+              let data = try? Data(contentsOf: url),
+              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let s = dict["TERMS_OF_USE_URL"] as? String,
+              !s.isEmpty,
+              let u = URL(string: s.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        return u
+    }
 }

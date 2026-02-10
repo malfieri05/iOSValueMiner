@@ -28,7 +28,7 @@ struct ClipCard: View {
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
-    var body: some View {
+    private var cardContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 // Category capsule
@@ -126,6 +126,63 @@ struct ClipCard: View {
                 Text(clipDateFormatter.string(from: clip.createdAt))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.6))
+            }
+        }
+    }
+
+    private var thumbnailURL: URL? {
+        guard let url = thumbnailURLFromVideoURL(clip.url) else { return nil }
+        return URL(string: url)
+    }
+
+    private func thumbnailURLFromVideoURL(_ urlString: String) -> String? {
+        let s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty, let url = URL(string: s), let host = url.host()?.lowercased() else { return nil }
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        var videoID: String?
+        if host.contains("youtu.be") {
+            videoID = pathComponents.first
+        } else if host.contains("youtube.com") {
+            videoID = components.queryItems?.first(where: { $0.name == "v" })?.value
+            if videoID == nil, pathComponents.count >= 2 {
+                let pathFirst = pathComponents[0].lowercased()
+                if pathFirst == "embed" || pathFirst == "v" { videoID = pathComponents[1] }
+            }
+        }
+        guard let id = videoID, !id.isEmpty else { return nil }
+        return "https://img.youtube.com/vi/\(id)/mqdefault.jpg"
+    }
+
+    @ViewBuilder
+    private func thumbnailView(url: URL) -> some View {
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            case .failure:
+                Color.white.opacity(0.15)
+            case .empty:
+                Color.white.opacity(0.15)
+            @unknown default:
+                Color.white.opacity(0.15)
+            }
+        }
+        .frame(width: 88, height: 66)
+        .fixedSize(horizontal: true, vertical: true)
+        .background(accentColor.opacity(0.25))
+        .clipped()
+        .cornerRadius(10)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            cardContent
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let thumbURL = thumbnailURL {
+                thumbnailView(url: thumbURL)
             }
         }
         .foregroundColor(.white)

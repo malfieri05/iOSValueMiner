@@ -33,10 +33,17 @@ final class SubscriptionManager: ObservableObject {
     @Published private(set) var activeProductIds: Set<String> = []
     @Published private(set) var currentTier: Tier = .free
 
+    /// Product IDs for StoreKit and SubscriptionStoreView (must match App Store Connect).
+    static let subscriptionProductIDs: [String] = [
+        "scrollmine.starter.monthly",
+        "scrollmine.silver.monthly",
+        "scrollmine.gold.monthly"
+    ]
+
     private let plans: [Plan] = [
         Plan(id: "scrollmine.starter.monthly", tier: .starter, displayName: "Starter", clipsPerMonth: 50),
-        Plan(id: "scrollmine.silver.monthly", tier: .silver, displayName: "Silver", clipsPerMonth: 200),
-        Plan(id: "scrollmine.gold.monthly", tier: .gold, displayName: "Gold", clipsPerMonth: nil)
+        Plan(id: "scrollmine.silver.monthly", tier: .silver, displayName: "Silver", clipsPerMonth: 150),
+        Plan(id: "scrollmine.gold.monthly", tier: .gold, displayName: "Gold", clipsPerMonth: 450)
     ]
 
     private var updatesTask: Task<Void, Never>?
@@ -63,8 +70,8 @@ final class SubscriptionManager: ObservableObject {
         switch tier {
         case .free: return freeMonthlyLimit
         case .starter: return 50
-        case .silver: return 200
-        case .gold: return nil
+        case .silver: return 150
+        case .gold: return 450
         }
     }
 

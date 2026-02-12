@@ -25,8 +25,10 @@ struct ClipCard: View {
     @State private var showDeleteConfirm = false
     @State private var showShareSheet = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -42,7 +44,7 @@ struct ClipCard: View {
                         .foregroundColor(accentColor)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(accentColor.opacity(0.2))
+                        .background(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
                         .cornerRadius(14)
                         .frame(minWidth: capsuleMinWidth(), alignment: .leading)
                         .lineLimit(1)
@@ -89,8 +91,8 @@ struct ClipCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Clip \(clipNumber):")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
-                    .underline(true, color: .white.opacity(0.6))
+                    .foregroundColor(primaryText.opacity(0.6))
+                    .underline(true, color: primaryText.opacity(0.6))
 
                 if let url = URL(string: clip.url) {
                     Link(destination: url) {
@@ -111,21 +113,21 @@ struct ClipCard: View {
 
                 Text(clip.platform)
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(primaryText.opacity(0.7))
             }
 
             // Transcript preview
             Text(capitalizeFirstLetter(clip.transcript))
                 .font(.system(size: 14, weight: .regular))
                 .lineLimit(3)
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
 
             // Date at bottom right
             HStack {
                 Spacer()
                 Text(clipDateFormatter.string(from: clip.createdAt))
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(primaryText.opacity(0.6))
             }
         }
     }
@@ -163,16 +165,16 @@ struct ClipCard: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             case .failure:
-                Color.white.opacity(0.15)
+                primaryText.opacity(0.15)
             case .empty:
-                Color.white.opacity(0.15)
+                primaryText.opacity(0.15)
             @unknown default:
-                Color.white.opacity(0.15)
+                primaryText.opacity(0.15)
             }
         }
         .frame(width: 88, height: 66)
         .fixedSize(horizontal: true, vertical: true)
-        .background(accentColor.opacity(0.25))
+        .background(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
         .clipped()
         .cornerRadius(10)
     }
@@ -185,7 +187,7 @@ struct ClipCard: View {
                 thumbnailView(url: thumbURL)
             }
         }
-        .foregroundColor(.white)
+        .foregroundColor(primaryText)
         .padding(14)
         .background(Color.clear)
         .overlay(

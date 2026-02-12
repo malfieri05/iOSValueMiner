@@ -25,6 +25,7 @@ struct ContentView: View {
     @State private var appleNonce: String?
     @AppStorage("didShowShareSheetIntro") private var didShowShareSheetIntro = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
     init() {
         let auth = AuthViewModel()
@@ -40,6 +41,8 @@ struct ContentView: View {
     
     private let authFormMaxWidth: CGFloat = 360
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
         Group {
@@ -68,12 +71,14 @@ struct ContentView: View {
                         .tabItem { tabItem(systemImage: "bolt.fill") }
                         .tag(0)
 
-                        SettingsView(
-                            onSignOut: {
-                                auth.signOut()
-                            },
-                            subscriptionManager: subscriptionManager
-                        )
+                        NavigationStack {
+                            SettingsView(
+                                onSignOut: {
+                                    auth.signOut()
+                                },
+                                subscriptionManager: subscriptionManager
+                            )
+                        }
                         .tabItem { tabItem(systemImage: "scroll.fill") }
                         .tag(1)
                     }
@@ -127,7 +132,7 @@ struct ContentView: View {
 
     private var authView: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            backgroundColor.ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 20) {
@@ -162,10 +167,10 @@ struct ContentView: View {
 
             Text("ScrollMine")
                 .font(.largeTitle).bold()
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
 
             Text(isLoginMode ? "Log in to your account" : "Create your account")
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(primaryText.opacity(0.8))
         }
         .frame(maxWidth: .infinity)
     }
@@ -176,14 +181,14 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never)
                 .keyboardType(.emailAddress)
                 .padding()
-                .background(Color.white.opacity(0.08))
-                .foregroundColor(.white)
+                .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                .foregroundColor(primaryText)
                 .cornerRadius(12)
 
             SecureField("Password", text: $auth.password)
                 .padding()
-                .background(Color.white.opacity(0.08))
-                .foregroundColor(.white)
+                .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                .foregroundColor(primaryText)
                 .cornerRadius(12)
         }
         .frame(maxWidth: authFormMaxWidth)
@@ -195,7 +200,7 @@ struct ContentView: View {
                 Text(error).foregroundColor(.red).font(.callout)
             }
             if let info = auth.authInfo {
-                Text(info).foregroundColor(.white.opacity(0.7)).font(.callout)
+                Text(info).foregroundColor(primaryText.opacity(0.7)).font(.callout)
             }
 
             Button {
@@ -206,7 +211,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(accentColor)
-                    .foregroundColor(.white)
+                    .foregroundColor(.white) // Keep white for contrast on accent
                     .cornerRadius(12)
             }
 
@@ -225,7 +230,7 @@ struct ContentView: View {
                     Task { await auth.sendPasswordReset() }
                 } label: {
                     Text("Forgot password?")
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(primaryText.opacity(0.7))
                         .font(.callout)
                 }
                 .padding(.top, 2)
@@ -260,7 +265,7 @@ struct ContentView: View {
                     auth.showError("Apple sign-in failed.")
                 }
             }
-            .signInWithAppleButtonStyle(.white)
+            .signInWithAppleButtonStyle(themeBackground == "white" ? .black : .white)
             .frame(height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
@@ -299,18 +304,24 @@ struct ContentView: View {
 
 private struct VerifyEmailView: View {
     @ObservedObject var auth: AuthViewModel
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            backgroundColor.ignoresSafeArea()
             VStack(spacing: 16) {
                 Text("Verify your email")
                     .font(.title2).bold()
-                    .foregroundColor(.white)
+                    .foregroundColor(primaryText)
 
                 Text("We sent a verification link to your email. Please verify to continue.")
                     .font(.callout)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(primaryText.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
 
@@ -321,8 +332,8 @@ private struct VerifyEmailView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundColor(.white)
-                        .background(Color.white.opacity(0.12))
+                        .foregroundColor(primaryText)
+                        .background(primaryText.opacity(0.12))
                         .cornerRadius(12)
                 }
 
@@ -333,8 +344,8 @@ private struct VerifyEmailView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundColor(.black)
-                        .background(Color.white)
+                        .foregroundColor(themeBackground == "white" ? .black : .white)
+                        .background(themeBackground == "white" ? Color.white : accentColor)
                         .cornerRadius(12)
                 }
 
@@ -343,7 +354,7 @@ private struct VerifyEmailView: View {
                 } label: {
                     Text("Sign out")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(primaryText.opacity(0.7))
                 }
                 .padding(.top, 4)
 
@@ -353,7 +364,7 @@ private struct VerifyEmailView: View {
                         .font(.footnote)
                 } else if let info = auth.authInfo {
                     Text(info)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(primaryText.opacity(0.7))
                         .font(.footnote)
                 }
             }
@@ -413,6 +424,7 @@ private struct ClipDetailModal: View {
     let onSelectCategory: (String) -> Void
     let onDismiss: () -> Void
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "M/d/yy"
@@ -420,6 +432,8 @@ private struct ClipDetailModal: View {
     }()
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
         ZStack {
@@ -438,7 +452,7 @@ private struct ClipDetailModal: View {
                             .foregroundColor(accentColor)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Color.white.opacity(0.08))
+                            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
                             .cornerRadius(12)
                     }
                 }
@@ -446,8 +460,8 @@ private struct ClipDetailModal: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(clipNumberText)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                        .underline(true, color: .white.opacity(0.6))
+                        .foregroundColor(primaryText.opacity(0.6))
+                        .underline(true, color: primaryText.opacity(0.6))
 
                     if let url = URL(string: clip.url) {
                         Link(destination: url) {
@@ -466,14 +480,14 @@ private struct ClipDetailModal: View {
 
                     Text(clip.platform)
                         .font(.system(size: 13, weight: .regular))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(primaryText.opacity(0.7))
                 }
 
                 ScrollView {
                     Text(capitalizeFirstLetter(clip.transcript))
                         .font(.system(size: 16, weight: .light))
                         .lineSpacing(3)
-                        .foregroundColor(.white)
+                        .foregroundColor(primaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.top, 10)
@@ -484,12 +498,11 @@ private struct ClipDetailModal: View {
                     Spacer()
                     Text(dateFormatter.string(from: clip.createdAt))
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(primaryText.opacity(0.6))
                 }
             }
             .padding(16)
-            // Midpoint between old navy (16/18/32) and black
-            .background(Color(red: 8/255, green: 9/255, blue: 16/255))
+            .background(backgroundColor)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -514,7 +527,7 @@ private struct ClipDetailModal: View {
                 .foregroundColor(accentColor)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(accentColor.opacity(0.2))
+                .background(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
                 .cornerRadius(14)
         }
     }

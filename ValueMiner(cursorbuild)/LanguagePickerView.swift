@@ -11,6 +11,10 @@ struct LanguagePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedLanguage: String
     let options: [(code: String, name: String)]
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
         NavigationStack {
@@ -22,11 +26,11 @@ struct LanguagePickerView: View {
                     } label: {
                         HStack {
                             Text(option.name)
-                                .foregroundColor(.white)
+                                .foregroundColor(primaryText)
                             Spacer()
                             if selectedLanguage == option.code {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(.white.opacity(0.7))
+                                    .foregroundColor(primaryText.opacity(0.7))
                             }
                         }
                         .contentShape(Rectangle())
@@ -34,6 +38,8 @@ struct LanguagePickerView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(backgroundColor)
             .navigationTitle("Language")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

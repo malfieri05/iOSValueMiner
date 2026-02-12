@@ -64,33 +64,29 @@ struct SettingsView: View {
     @State private var clipCreatedAt: [Timestamp] = []
     @State private var clipsListener: ListenerRegistration?
     @State private var userDocListener: ListenerRegistration?
-    @State private var showSettingsMenu = false
     @State private var atLabelWidth: CGFloat = 0
     @State private var showShareSheetHelp = false
     @State private var showColorPicker = false
-    @State private var showPaywallPreview = false
-    @State private var showLanguagePicker = false
-    @State private var showDeleteAccountConfirm = false
-    @State private var isDeletingAccount = false
-    @State private var deleteAccountStatus: String?
     @State private var showAccountSheet = false
     @State private var newAccountEmail = ""
     @State private var accountStatus: String?
     @State private var isUpdatingAccount = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
-    @AppStorage("transcriptLanguage") private var transcriptLanguage = "en"
-    
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+
     // Match the mined clip cell outline style (ClipCard)
     private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
     private var accentPurple: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-            
+            backgroundColor.ignoresSafeArea()
+
             VStack(spacing: 0) {
                 headerRow
-                    .background(Color.black)
+                    .background(backgroundColor)
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -106,13 +102,10 @@ struct SettingsView: View {
                         .padding(.bottom, 24)
                         
                         reportCard
-                        subscriptionCard
-                        languageCard
-                        accountManagementCard
 
                         Text("ScrollMiner saves links and text transcripts only. No video or audio is downloaded.")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(primaryText.opacity(0.5))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
@@ -149,56 +142,23 @@ struct SettingsView: View {
         HStack {
             Text("Profile")
                 .font(.title2).bold()
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
             
             Spacer()
 
-            // Gear with "Sign out" pill that expands to the LEFT
-            ZStack(alignment: .trailing) {
-                if showSettingsMenu {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu = false }
-                        onSignOut()
-                    }) {
-                        Text("Sign out")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(accentPurple)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(Color.black))
-                            .overlay(
-                                Capsule()
-                                    .stroke(accentPurple.opacity(0.6), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    // Place it to the left of the gear with a small gap
-                    .offset(x: -54)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
-
-                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showSettingsMenu.toggle() } }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(Circle())
-                }
+            NavigationLink(destination: SettingsPageView(onSignOut: onSignOut, subscriptionManager: subscriptionManager)) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(primaryText)
+                    .padding(10)
+                    .background(primaryText.opacity(0.08))
+                    .clipShape(Circle())
             }
+            .simultaneousGesture(TapGesture().onEnded { lightHaptic() })
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
         .padding(.bottom, 16)
-        .onTapGesture {
-            if showSettingsMenu {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    showSettingsMenu = false
-                }
-            }
-        }
     }
     
     private var accountEmailBar: some View {
@@ -213,10 +173,10 @@ struct SettingsView: View {
                         .truncationMode(.middle)
                         .minimumScaleFactor(0.7)
                 }
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.white.opacity(0.06))
+                .background(primaryText.opacity(0.06))
                 .cornerRadius(999)
             }
             Spacer()
@@ -226,7 +186,7 @@ struct SettingsView: View {
                     .foregroundColor(accentPurple)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.06))
+                    .background(primaryText.opacity(0.06))
                     .cornerRadius(10)
             }
             Button(action: { showShareSheetHelp = true }) {
@@ -251,7 +211,7 @@ struct SettingsView: View {
             }, allowsEarlyDismiss: true)
         }
         .sheet(isPresented: $showColorPicker) {
-            ThemeColorPicker(selectedAccent: $themeAccent)
+            ThemeColorPicker(selectedAccent: $themeAccent, selectedBackground: $themeBackground)
                 .presentationDetents([.medium])
         }
         .sheet(isPresented: $showAccountSheet) {
@@ -271,13 +231,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Total saved clips:")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
             
             Spacer()
             
             Text("\(clipCount)")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
                 .frame(maxWidth: .infinity, alignment: .center)
             
             Spacer()
@@ -293,83 +253,17 @@ struct SettingsView: View {
         .frame(height: 110)
     }
 
-    private var subscriptionCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Subscription")
-                .font(.headline)
-                .foregroundColor(.white)
-
-            HStack {
-                Text("Current plan:")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text(currentPlanLabel)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(.white.opacity(0.8))
-            }
-
-            Button(action: openManageSubscriptions) {
-                HStack(spacing: 8) {
-                    Image(systemName: "creditcard.fill")
-                    Text("Manage Subscription")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(accentPurple)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(accentPurple.opacity(0.6), lineWidth: 1)
-                )
-            }
-
-            Button(action: { showPaywallPreview = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "lock.fill")
-                    Text("Preview Paywall")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(.white.opacity(0.85))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(0.04))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                )
-            }
-        }
-        .padding(16)
-        .background(Color.clear)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
-        )
-        .cornerRadius(16)
-        .padding(.horizontal, 16)
-        .sheet(isPresented: $showPaywallPreview) {
-            PaywallView(subscriptionManager: subscriptionManager)
-                .presentationDetents([.fraction(0.9)])
-        }
-    }
-    
     private var sinceLastReportCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Since last report:")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
             
             Spacer()
             
             Text("\(clipCountSinceLastReport)")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
                 .frame(maxWidth: .infinity, alignment: .center)
             
             Spacer()
@@ -389,18 +283,18 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your scroll report:")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
                 .underline(true, color: .white)
             
             Text("Receive new automated email report of your saved clips per set time period:")
                 .font(.footnote)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(primaryText.opacity(0.6))
 
             // Toggle row: label (smaller/gray) + toggle on same line
             HStack(spacing: 12) {
                 Text("Enable report emails:")
                     .font(.footnote)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(primaryText.opacity(0.6))
                 Spacer()
                 Toggle("", isOn: $scrollReportEnabled)
                     .labelsHidden()
@@ -410,7 +304,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Schedule:")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(primaryText)
                     .underline(true, color: .white)
 
                 // Centered schedule controls with no truncation ("...") ever.
@@ -419,7 +313,7 @@ struct SettingsView: View {
                         Spacer(minLength: 0)
                         HStack(spacing: 10) {
                             Text("Every")
-                                .foregroundColor(.white)
+                                .foregroundColor(primaryText)
                                 .fixedSize(horizontal: true, vertical: false)
 
                             Button(action: { updateInterval(-1) }) {
@@ -427,19 +321,19 @@ struct SettingsView: View {
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(accentPurple)
                                     .frame(width: 29, height: 29) // +10% bigger
-                                    .background(Color.white.opacity(0.08))
+                                    .background(primaryText.opacity(0.08))
                                     .clipShape(Circle())
                             }
                             .simultaneousGesture(TapGesture().onEnded { lightHaptic() })
 
                             Text("\(scrollReportIntervalDays)")
                                 .font(.system(size: 16, weight: .semibold)) // +10% bigger
-                                .foregroundColor(.white)
+                                .foregroundColor(primaryText)
                                 .monospacedDigit()
                                 .frame(minWidth: 32, alignment: .center) // +10% bigger
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.white.opacity(0.08))
+                                .background(primaryText.opacity(0.08))
                                 .cornerRadius(8)
                                 // Capture the center of the day-number pill so we can
                                 // center the time picker directly underneath it.
@@ -450,13 +344,13 @@ struct SettingsView: View {
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(accentPurple)
                                     .frame(width: 29, height: 29) // +10% bigger
-                                    .background(Color.white.opacity(0.08))
+                                    .background(primaryText.opacity(0.08))
                                     .clipShape(Circle())
                             }
                             .simultaneousGesture(TapGesture().onEnded { lightHaptic() })
 
                             Text("day(s)")
-                                .foregroundColor(.white)
+                                .foregroundColor(primaryText)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                         .fixedSize(horizontal: true, vertical: false)
@@ -478,7 +372,7 @@ struct SettingsView: View {
                             //   (i.e. HStack center is shifted left by (atWidth + spacing)/2).
                             HStack(spacing: 8) {
                                 Text("at")
-                                    .foregroundColor(.white)
+                                    .foregroundColor(primaryText)
                                     .font(.footnote)
                                     .background(
                                         GeometryReader { g in
@@ -511,12 +405,12 @@ struct SettingsView: View {
             
             Text("Reports send to \(userEmail)")
                 .font(.footnote)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(primaryText.opacity(0.6))
                 .frame(maxWidth: .infinity, alignment: .center)
             
             Text("Includes clips mined since your last report.")
                 .font(.footnote)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(primaryText.opacity(0.6))
                 .frame(maxWidth: .infinity, alignment: .center)
             
             Button {
@@ -543,7 +437,7 @@ struct SettingsView: View {
             if let status = sendNowStatus {
                 Text(status)
                     .font(.footnote)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(primaryText.opacity(0.6))
             }
         }
         .padding(16)
@@ -554,204 +448,6 @@ struct SettingsView: View {
         )
         .cornerRadius(16)
         .padding(.horizontal, 16)
-    }
-
-    private var languageCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Transcription Language")
-                .font(.headline)
-                .foregroundColor(.white)
-
-            HStack {
-                Text("Current:")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text(languageName(for: transcriptLanguage))
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(.white.opacity(0.8))
-            }
-
-            Button(action: { showLanguagePicker = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "globe")
-                    Text("Choose Language")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(accentPurple)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(accentPurple.opacity(0.6), lineWidth: 1)
-                )
-            }
-        }
-        .padding(16)
-        .background(Color.clear)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
-        )
-        .cornerRadius(16)
-        .padding(.horizontal, 16)
-        .sheet(isPresented: $showLanguagePicker) {
-            LanguagePickerView(
-                selectedLanguage: $transcriptLanguage,
-                options: languageOptions
-            )
-            .presentationDetents([.medium, .large])
-        }
-    }
-
-    private var accountManagementCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Account Management")
-                .font(.headline)
-                .foregroundColor(.white)
-
-            Button(role: .destructive, action: { showDeleteAccountConfirm = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "trash")
-                    Text(isDeletingAccount ? "Deleting..." : "Delete Account")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(.red)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.red.opacity(0.6), lineWidth: 1)
-                )
-            }
-            .disabled(isDeletingAccount)
-
-            if let status = deleteAccountStatus {
-                Text(status)
-                    .font(.footnote)
-                    .foregroundColor(.white.opacity(0.6))
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
-        }
-        .padding(16)
-        .background(Color.clear)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
-        )
-        .cornerRadius(16)
-        .padding(.horizontal, 16)
-        .alert("Delete account?", isPresented: $showDeleteAccountConfirm) {
-            Button("Delete", role: .destructive) {
-                deleteAccount()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will permanently delete your account and all saved clips.")
-        }
-    }
-
-    private var currentPlanLabel: String {
-        switch subscriptionManager.currentTier {
-        case .free: return "Free"
-        case .starter: return "Starter"
-        case .silver: return "Silver"
-        case .gold: return "Gold"
-        }
-    }
-
-    private func openManageSubscriptions() {
-        guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else { return }
-        UIApplication.shared.open(url)
-    }
-
-    private var languageOptions: [(code: String, name: String)] {
-        [
-            ("en", "English"),
-            ("es", "Spanish"),
-            ("fr", "French"),
-            ("de", "German"),
-            ("it", "Italian"),
-            ("pt", "Portuguese"),
-            ("nl", "Dutch"),
-            ("sv", "Swedish"),
-            ("da", "Danish"),
-            ("no", "Norwegian"),
-            ("fi", "Finnish"),
-            ("pl", "Polish"),
-            ("cs", "Czech"),
-            ("tr", "Turkish"),
-            ("ru", "Russian"),
-            ("uk", "Ukrainian"),
-            ("ar", "Arabic"),
-            ("he", "Hebrew"),
-            ("hi", "Hindi"),
-            ("id", "Indonesian"),
-            ("ms", "Malay"),
-            ("th", "Thai"),
-            ("vi", "Vietnamese"),
-            ("ja", "Japanese"),
-            ("ko", "Korean"),
-            ("zh", "Chinese"),
-            ("el", "Greek")
-        ]
-    }
-
-    private func languageName(for code: String) -> String {
-        languageOptions.first(where: { $0.code == code })?.name ?? "English"
-    }
-
-    private func deleteAccount() {
-        guard let user = Auth.auth().currentUser else {
-            deleteAccountStatus = "No signed-in user."
-            return
-        }
-        isDeletingAccount = true
-        deleteAccountStatus = nil
-        Task {
-            do {
-                if let uid = userId {
-                    try await deleteUserData(userId: uid)
-                }
-                try await user.delete()
-                deleteAccountStatus = "Account deleted."
-            } catch {
-                let nsError = error as NSError
-                if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
-                    deleteAccountStatus = "Please sign out and sign back in, then try again."
-                } else {
-                    deleteAccountStatus = "Failed to delete account."
-                }
-                print("Delete account error:", error)
-            }
-            isDeletingAccount = false
-        }
-    }
-
-    private func deleteUserData(userId: String) async throws {
-        let db = Firestore.firestore()
-        let userRef = db.collection("users").document(userId)
-
-        // Delete clips
-        let clipsSnapshot = try await userRef.collection("clips").getDocuments()
-        for doc in clipsSnapshot.documents {
-            try await doc.reference.delete()
-        }
-
-        // Delete categories
-        let categoriesSnapshot = try await userRef.collection("categories").getDocuments()
-        for doc in categoriesSnapshot.documents {
-            try await doc.reference.delete()
-        }
-
-        // Delete user document
-        try await userRef.delete()
     }
 
     private func updateAccountEmail() {
@@ -1067,8 +763,10 @@ private struct AccountSettingsSheet: View {
     let onUpdateEmail: () -> Void
     let onResetPassword: () -> Void
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
     var body: some View {
         ZStack {
@@ -1076,19 +774,19 @@ private struct AccountSettingsSheet: View {
             VStack(spacing: 16) {
                 Text("Account Settings")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(primaryText)
 
                 Text("Current email: \(currentEmail)")
                     .font(.footnote)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(primaryText.opacity(0.8))
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 TextField("New email address", text: $newEmail)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.emailAddress)
                     .padding(12)
-                    .background(Color.white.opacity(0.12))
-                    .foregroundColor(.white)
+                    .background(primaryText.opacity(0.12))
+                    .foregroundColor(primaryText)
                     .cornerRadius(12)
 
                 Button(action: onUpdateEmail) {
@@ -1096,8 +794,8 @@ private struct AccountSettingsSheet: View {
                         .font(.system(size: 14, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundColor(.white)
-                        .background(Color.white.opacity(0.18))
+                        .foregroundColor(primaryText)
+                        .background(primaryText.opacity(0.18))
                         .cornerRadius(12)
                 }
                 .disabled(isUpdating)
@@ -1107,8 +805,8 @@ private struct AccountSettingsSheet: View {
                         .font(.system(size: 14, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundColor(.white)
-                        .background(Color.white.opacity(0.14))
+                        .foregroundColor(primaryText)
+                        .background(primaryText.opacity(0.14))
                         .cornerRadius(12)
                 }
                 .disabled(isUpdating)
@@ -1116,7 +814,7 @@ private struct AccountSettingsSheet: View {
                 if let status = status {
                     Text(status)
                         .font(.footnote)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(primaryText.opacity(0.8))
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
@@ -1126,7 +824,7 @@ private struct AccountSettingsSheet: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(Color.white.opacity(0.06))
+                            .fill(primaryText.opacity(0.06))
                     )
             )
             .overlay(
@@ -1141,15 +839,19 @@ private struct AccountSettingsSheet: View {
 
 private struct ThemeColorPicker: View {
     @Binding var selectedAccent: String
+    @Binding var selectedBackground: String
     private let columns = [GridItem(.adaptive(minimum: 70), spacing: 12)]
+
+    private var primaryText: Color { ThemeColors.primaryText(from: selectedBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: selectedBackground) }
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            backgroundColor.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
                 Text("Choose Color Theme")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(primaryText)
 
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(ThemeColors.options, id: \.id) { option in
@@ -1162,24 +864,64 @@ private struct ThemeColorPicker: View {
                                     .frame(width: 44, height: 44)
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                            .stroke(primaryText.opacity(0.35), lineWidth: 1)
                                     )
                                     .overlay(
                                         Group {
                                             if selectedAccent == option.id.rawValue {
                                                 Image(systemName: "checkmark")
                                                     .font(.system(size: 14, weight: .bold))
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(primaryText)
                                             }
                                         }
                                     )
                                 Text(option.name)
                                     .font(.caption)
-                                    .foregroundColor(.white.opacity(0.85))
+                                    .foregroundColor(primaryText.opacity(0.85))
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(Color.white.opacity(0.04))
+                            .background(primaryText.opacity(0.06))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Text("Background Color")
+                    .font(.headline)
+                    .foregroundColor(primaryText)
+                    .padding(.top, 8)
+
+                HStack(spacing: 12) {
+                    ForEach(["black", "white"], id: \.self) { option in
+                        Button(action: {
+                            selectedBackground = option
+                        }) {
+                            HStack(spacing: 8) {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(option == "black" ? Color.black : Color.white)
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(primaryText.opacity(0.4), lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        Group {
+                                            if selectedBackground == option {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(option == "black" ? .white : .black)
+                                            }
+                                        }
+                                    )
+                                Text(option == "black" ? "Black" : "White")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundColor(primaryText)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(primaryText.opacity(0.06))
                             .cornerRadius(12)
                         }
                         .buttonStyle(.plain)

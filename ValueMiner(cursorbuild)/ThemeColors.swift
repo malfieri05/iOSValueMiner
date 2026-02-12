@@ -21,6 +21,50 @@ enum ThemeAccent: String, CaseIterable {
 
 struct ThemeColors {
     static let defaultAccent = ThemeAccent.purple.rawValue
+    static let backgroundKey = "themeBackground"
+    static let defaultBackground = "black"
+
+    static func background(from raw: String) -> Color {
+        raw == "white" ? .white : .black
+    }
+
+    static func primaryText(from raw: String) -> Color {
+        raw == "white" ? .black : .white
+    }
+
+    static func primaryTextUI(from raw: String) -> UIColor {
+        raw == "white" ? .black : .white
+    }
+
+    /// Opacity for input/button fills. Higher on white theme for visibility.
+    static func inputFillOpacity(from raw: String) -> Double {
+        raw == "white" ? 0.13 : 0.08
+    }
+
+    /// Opacity for accent-tinted backgrounds (pills, tags). Higher on white theme.
+    static func accentTintOpacity(from raw: String) -> Double {
+        raw == "white" ? 0.32 : 0.2
+    }
+
+    /// Opacity for subtle borders on inputs/buttons. Defines edges on white theme.
+    static func inputStrokeOpacity(from raw: String) -> Double {
+        raw == "white" ? 0.2 : 0.12
+    }
+
+    /// Opacity for pill/cell fills (UIKit). Higher on white theme.
+    static func pillFillOpacity(from raw: String) -> CGFloat {
+        raw == "white" ? 0.13 : 0.08
+    }
+
+    /// Opacity for selected pill accent tint. Higher on white theme for visibility.
+    static func pillAccentTintOpacity(from raw: String) -> CGFloat {
+        raw == "white" ? 0.38 : 0.25
+    }
+
+    /// Opacity for secondary buttons (e.g. Done, Cancel). Higher on white theme.
+    static func secondaryButtonFillOpacity(from raw: String) -> Double {
+        raw == "white" ? 0.25 : 0.2
+    }
 
     static let options: [(id: ThemeAccent, name: String, color: Color)] = [
         (.purple, "Purple", Color(red: 164/255, green: 93/255, blue: 233/255)),

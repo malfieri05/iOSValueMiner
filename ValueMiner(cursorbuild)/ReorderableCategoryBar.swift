@@ -18,6 +18,7 @@ struct ReorderableCategoryBar: View {
     @Binding var categories: [Category]
     @Binding var selectedCategoryId: UUID?
     @State private var isEditing = false
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
     let persistenceKey: String
     let deletableTitles: Set<String>
@@ -52,8 +53,8 @@ struct ReorderableCategoryBar: View {
                         .font(.system(size: 13, weight: .semibold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Color.black.opacity(0.2))
-                        .foregroundColor(.white)
+                        .background(ThemeColors.primaryText(from: themeBackground).opacity(ThemeColors.secondaryButtonFillOpacity(from: themeBackground)))
+                        .foregroundColor(ThemeColors.primaryText(from: themeBackground))
                         .cornerRadius(10)
                         .padding(.trailing, 4)
                 }
@@ -303,7 +304,7 @@ final class CategoryPillCell: UICollectionViewCell {
             container.layer.cornerCurve = .continuous
         }
         container.layer.masksToBounds = true
-        container.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        container.backgroundColor = themePrimaryTextColor().withAlphaComponent(ThemeColors.pillFillOpacity(from: themeBackgroundRaw()))
 
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
@@ -366,10 +367,11 @@ final class CategoryPillCell: UICollectionViewCell {
         }
 
         if isSelected {
-            container.backgroundColor = baseColor.withAlphaComponent(0.25)
-            label.textColor = .white
+            let bgRaw = themeBackgroundRaw()
+            container.backgroundColor = baseColor.withAlphaComponent(ThemeColors.pillAccentTintOpacity(from: bgRaw))
+            label.textColor = bgRaw == "white" ? baseColor : (baseColor == .white ? .black : .white)
         } else {
-            container.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+            container.backgroundColor = themePrimaryTextColor().withAlphaComponent(ThemeColors.pillFillOpacity(from: themeBackgroundRaw()))
         }
 
         deleteButton.isHidden = !(isEditing && isDeletable)
@@ -384,6 +386,15 @@ final class CategoryPillCell: UICollectionViewCell {
     private func themeAccentColor() -> UIColor {
         let raw = UserDefaults.standard.string(forKey: "themeAccent") ?? ThemeColors.defaultAccent
         return ThemeColors.uiColor(from: raw)
+    }
+
+    private func themePrimaryTextColor() -> UIColor {
+        let raw = UserDefaults.standard.string(forKey: ThemeColors.backgroundKey) ?? ThemeColors.defaultBackground
+        return ThemeColors.primaryTextUI(from: raw)
+    }
+
+    private func themeBackgroundRaw() -> String {
+        UserDefaults.standard.string(forKey: ThemeColors.backgroundKey) ?? ThemeColors.defaultBackground
     }
 
     @objc private func handleDeleteTap() {

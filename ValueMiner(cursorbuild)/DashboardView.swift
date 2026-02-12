@@ -32,9 +32,13 @@ struct DashboardView: View {
     @State private var pendingDeleteCategory: Category?
     @State private var searchText = ""
     @State private var searchRowIndex = 0
+    @State private var showAddClipSheet = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     private var orderedCategoryTitles: [String] {
         let allCategory = categoriesStore.defaultCategories.first! // "All"
@@ -55,12 +59,28 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            backgroundColor.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
                 headerView
                     .padding(.horizontal, 16)
 
                 pagerView
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    lightHaptic()
+                    showAddClipSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 56, height: 56)
+                        .background(accentColor)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.35), radius: 8, x: 0, y: 4)
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 8)
             }
         }
         .onAppear {
@@ -134,6 +154,9 @@ struct DashboardView: View {
         .sheet(isPresented: $vm.showPaywall) {
             PaywallView(subscriptionManager: vm.subscriptionManager)
                 .presentationDetents([.fraction(0.9)])
+        }
+        .sheet(isPresented: $showAddClipSheet) {
+            addClipSheetContent
         }
         .alert(item: $pendingDeleteCategory) { category in
             Alert(
@@ -210,16 +233,16 @@ struct DashboardView: View {
                 HStack {
                     Text("Your Mine.")
                         .font(.title2).bold()
-                        .foregroundColor(.white)
+                        .foregroundColor(primaryText)
                     Spacer()
                 }
 
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(searchRowIndex == 0 ? accentColor : Color.white.opacity(0.3))
+                        .fill(searchRowIndex == 0 ? accentColor : primaryText.opacity(0.3))
                         .frame(width: 5, height: 5)
                     Circle()
-                        .fill(searchRowIndex == 1 ? accentColor : Color.white.opacity(0.3))
+                        .fill(searchRowIndex == 1 ? accentColor : primaryText.opacity(0.3))
                         .frame(width: 5, height: 5)
                 }
             }
@@ -232,7 +255,7 @@ struct DashboardView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 44)
-            .background(Color.black)
+            .background(backgroundColor)
             .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
 
             if let info = vm.infoMessage {
@@ -246,14 +269,14 @@ struct DashboardView: View {
                     text: $newCategoryName,
                     prompt: Text("New category name")
                         .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(primaryText.opacity(0.4))
                 )
                     .textInputAutocapitalization(.never)
                     .font(.system(size: 14))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.08))
-                    .foregroundColor(.white)
+                    .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                    .foregroundColor(primaryText)
                     .cornerRadius(12)
                     .onChange(of: newCategoryName) { _, newValue in
                         newCategoryName = clampCategoryName(newValue)
@@ -283,7 +306,7 @@ struct DashboardView: View {
                             .minimumScaleFactor(0.9)
                     }
                 }
-                .buttonStyle(ActionButtonStyle(accentColor: accentColor))
+                .buttonStyle(ActionButtonStyle(accentColor: accentColor, primaryText: primaryText, themeBackground: themeBackground))
                 .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || userId == nil)
             }
             .transition(.move(edge: .top).combined(with: .opacity))
@@ -309,17 +332,97 @@ struct DashboardView: View {
         }
     }
 
+    private var addClipSheetContent: some View {
+        ZStack {
+            backgroundColor.ignoresSafeArea()
+            VStack(spacing: 20) {
+                HStack {
+                    Text("Add New Clip")
+                        .font(.title2.bold())
+                        .foregroundColor(primaryText)
+                    Spacer()
+                    Button(action: { showAddClipSheet = false }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(primaryText.opacity(0.8))
+                            .frame(width: 32, height: 32)
+                            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+
+            NoKeyboardURLField(
+                text: $vm.urlText,
+                placeholder: vm.errorMessage ?? "Paste any link",
+                placeholderIsError: vm.errorMessage != nil,
+                textColor: ThemeColors.primaryTextUI(from: themeBackground)
+            )
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(height: 44)
+                .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(primaryText.opacity(ThemeColors.inputStrokeOpacity(from: themeBackground)), lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+
+                if let info = vm.infoMessage {
+                    Text(info)
+                        .font(.footnote)
+                        .foregroundColor(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                }
+
+                Button {
+                    lightHaptic()
+                    Task {
+                        await vm.mine()
+                        if vm.urlText.isEmpty && !vm.isLoading {
+                            showAddClipSheet = false
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Add Clip")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(accentColor)
+                    .cornerRadius(12)
+                }
+                .disabled(vm.isLoading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+        }
+        .presentationDetents([.height(240)])
+    }
+
     private var mineBarRow: some View {
         HStack(spacing: 8) {
             NoKeyboardURLField(
                 text: $vm.urlText,
                 placeholder: vm.errorMessage ?? "Paste a video URL",
-                placeholderIsError: vm.errorMessage != nil
+                placeholderIsError: vm.errorMessage != nil,
+                textColor: ThemeColors.primaryTextUI(from: themeBackground)
             )
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.08))
+            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
             .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(primaryText.opacity(ThemeColors.inputStrokeOpacity(from: themeBackground)), lineWidth: 1)
+            )
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
             .fixedSize(horizontal: false, vertical: true)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -329,7 +432,7 @@ struct DashboardView: View {
                 Task { await vm.mine() }
             } label: {
                 HStack(spacing: 6) {
-                    if vm.isLoading { ProgressView().tint(.white) }
+                    if vm.isLoading { ProgressView().tint(accentColor) }
                     Text(vm.isLoading ? "Mining..." : "Mine")
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
@@ -340,7 +443,7 @@ struct DashboardView: View {
                     }
                 }
             }
-            .buttonStyle(NarrowActionButtonStyle(accentColor: accentColor))
+            .buttonStyle(NarrowActionButtonStyle(accentColor: accentColor, primaryText: primaryText, themeBackground: themeBackground))
             .disabled(vm.isLoading)
 
             Button {
@@ -349,11 +452,11 @@ struct DashboardView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(primaryText.opacity(0.7))
                     .rotationEffect(.degrees(isAddCategoryExpanded ? 90 : 0))
                     .animation(.easeInOut(duration: 0.25), value: isAddCategoryExpanded)
             }
-            .buttonStyle(CapsuleToggleButtonStyle())
+            .buttonStyle(CapsuleToggleButtonStyle(primaryText: primaryText))
         }
     }
 
@@ -366,7 +469,7 @@ struct DashboardView: View {
                 TextField("Search transcripts", text: $searchText)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
-                    .foregroundColor(.white)
+                    .foregroundColor(primaryText)
                     .onChange(of: searchText) { _, newValue in
                         let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                         if !trimmed.isEmpty {
@@ -377,14 +480,18 @@ struct DashboardView: View {
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(primaryText.opacity(0.6))
                     }
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.08))
+            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
             .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(primaryText.opacity(ThemeColors.inputStrokeOpacity(from: themeBackground)), lineWidth: 1)
+            )
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
 
             Button(action: {
@@ -395,9 +502,9 @@ struct DashboardView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(primaryText.opacity(0.8))
                     .padding(10)
-                    .background(Color.white.opacity(0.08))
+                    .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
                     .clipShape(Circle())
             }
         }
@@ -484,13 +591,15 @@ struct DashboardView: View {
 
     private struct EmptyClipPlaceholder: View {
         @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+        @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
         private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
+        private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Mine a clip to generate feed!")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(primaryText.opacity(0.7))
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(14)
@@ -506,13 +615,15 @@ struct DashboardView: View {
 
     private struct SearchEmptyPlaceholder: View {
         @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+        @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
         private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
+        private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("No matching clips found.")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(primaryText.opacity(0.7))
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(14)
@@ -629,11 +740,13 @@ private extension View {
 
 private struct NarrowActionButtonStyle: ButtonStyle {
     let accentColor: Color
+    let primaryText: Color
+    let themeBackground: String
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 112, height: 40)
-            .background(Color.white.opacity(0.08))
+            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
             .foregroundColor(accentColor)
             .cornerRadius(12)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
@@ -643,11 +756,13 @@ private struct NarrowActionButtonStyle: ButtonStyle {
 }
 
 private struct CapsuleToggleButtonStyle: ButtonStyle {
+    let primaryText: Color
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 40, height: 40)
             .background(Color.clear)
-            .foregroundColor(.white.opacity(0.7))
+            .foregroundColor(primaryText.opacity(0.7))
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
@@ -656,11 +771,13 @@ private struct CapsuleToggleButtonStyle: ButtonStyle {
 
 private struct ActionButtonStyle: ButtonStyle {
     let accentColor: Color
+    let primaryText: Color
+    let themeBackground: String
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 160, height: 40)
-            .background(Color.white.opacity(0.08))
+            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
             .foregroundColor(accentColor)
             .cornerRadius(12)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
@@ -681,6 +798,7 @@ private struct NoKeyboardURLField: UIViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var placeholderIsError: Bool
+    var textColor: UIColor = .white
 
     func makeUIView(context: Context) -> UIView {
         let container = URLFieldContainer()
@@ -694,7 +812,7 @@ private struct NoKeyboardURLField: UIViewRepresentable {
         field.autocapitalizationType = .none
         field.autocorrectionType = .no
         field.font = .systemFont(ofSize: 14)
-        field.textColor = .white
+        field.textColor = textColor
         field.backgroundColor = .clear
         field.borderStyle = .none
         field.contentVerticalAlignment = .center
@@ -719,9 +837,10 @@ private struct NoKeyboardURLField: UIViewRepresentable {
         if field.text != text {
             field.text = text
         }
+        field.textColor = textColor
         field.attributedPlaceholder = NSAttributedString(
             string: placeholder,
-            attributes: [.foregroundColor: placeholderIsError ? UIColor.systemRed : UIColor.white.withAlphaComponent(0.4)]
+            attributes: [.foregroundColor: placeholderIsError ? UIColor.systemRed : textColor.withAlphaComponent(0.4)]
         )
     }
 

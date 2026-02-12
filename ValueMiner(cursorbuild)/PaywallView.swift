@@ -12,13 +12,16 @@ struct PaywallView: View {
     @ObservedObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     @State private var productsLoadFailed = false
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            backgroundColor.ignoresSafeArea()
 
             if #available(iOS 17.0, *) {
                 subscriptionStoreContent
@@ -75,7 +78,7 @@ struct PaywallView: View {
     private var paywallHeader: some View {
         Text("You've reached your monthly usage limit.")
             .font(.title2).bold()
-            .foregroundColor(.white)
+            .foregroundColor(primaryText)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 12)
             .padding(.bottom, 2)
@@ -103,16 +106,16 @@ struct PaywallView: View {
 
             if subscriptionManager.products.isEmpty && !productsLoadFailed {
                 ProgressView()
-                    .tint(.white)
+                    .tint(primaryText)
                     .padding()
                 Text("Loading subscription options…")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(primaryText.opacity(0.7))
             } else if subscriptionManager.products.isEmpty {
                 VStack(spacing: 12) {
                     Text("Subscription options couldn’t be loaded.")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(primaryText.opacity(0.7))
                         .multilineTextAlignment(.center)
                     Button("Retry") {
                         productsLoadFailed = false
@@ -133,10 +136,10 @@ struct PaywallView: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(product.displayName)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(primaryText)
                                         .font(.system(size: 15, weight: .semibold))
                                     Text(clipsSummary(for: product.id))
-                                        .foregroundColor(.white.opacity(0.6))
+                                        .foregroundColor(primaryText.opacity(0.6))
                                         .font(.system(size: 12))
                                 }
                                 Spacer()
@@ -145,7 +148,7 @@ struct PaywallView: View {
                                     .font(.system(size: 14, weight: .bold))
                             }
                             .padding(14)
-                            .background(Color.white.opacity(0.06))
+                            .background(primaryText.opacity(0.06))
                             .cornerRadius(14)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14)

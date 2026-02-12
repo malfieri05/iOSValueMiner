@@ -15,14 +15,17 @@ struct ShareSheetOnboardingView: View {
     let allowsEarlyDismiss: Bool
 
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     @State private var currentPage = 0
     @State private var showVideoFullscreen = false
 
     private var accent: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
         ZStack {
-            Color.black
+            backgroundColor
                 .ignoresSafeArea()
 
             VStack(spacing: 18) {
@@ -62,7 +65,7 @@ struct ShareSheetOnboardingView: View {
                     Button(action: { showVideoFullscreen = true }) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(primaryText)
                             .padding(8)
                             .background(Color.black.opacity(0.5))
                             .clipShape(Circle())
@@ -103,7 +106,7 @@ struct ShareSheetOnboardingView: View {
                 Button(action: onDismiss) {
                     Text(allowsEarlyDismiss ? "Close" : "Got it")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(buttonForegroundColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(buttonBackground)
@@ -131,7 +134,14 @@ struct ShareSheetOnboardingView: View {
 
     private var buttonBackground: Color {
         if allowsEarlyDismiss { return accent }
-        return currentPage == 3 ? accent : Color.white.opacity(0.15)
+        return currentPage == 3 ? accent : primaryText.opacity(0.15)
+    }
+
+    private var buttonForegroundColor: Color {
+        if allowsEarlyDismiss || currentPage == 3 {
+            return accent == .white ? .black : .white
+        }
+        return primaryText.opacity(0.6)
     }
 
     private func appIconImage() -> UIImage? {
@@ -153,13 +163,15 @@ private struct ShareSheetSlide: View {
     let symbol: String
 
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     private var accent: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
     var body: some View {
         VStack(spacing: 14) {
             Text(title)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(primaryText)
                 .multilineTextAlignment(.center)
 
             Image(systemName: symbol)
@@ -176,13 +188,15 @@ private struct ShareSheetPageDots: View {
     let currentIndex: Int
 
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     private var accent: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(0..<total, id: \.self) { index in
                 Circle()
-                    .fill(index == currentIndex ? accent : Color.white.opacity(0.25))
+                    .fill(index == currentIndex ? accent : primaryText.opacity(0.25))
                     .frame(width: 6, height: 6)
             }
         }
@@ -193,16 +207,18 @@ private struct ShareSheetPageDots: View {
 private struct LoopingVideoView: View {
     let resourceName: String
     let fileExtension: String
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
     var body: some View {
         if let url = Bundle.main.url(forResource: resourceName, withExtension: fileExtension) {
             LoopingPlayerRepresentable(url: url)
         } else {
             ZStack {
-                Color.white.opacity(0.04)
+                primaryText.opacity(0.04)
                 Text("Video not found")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(primaryText.opacity(0.6))
             }
         }
     }

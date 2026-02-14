@@ -189,8 +189,9 @@ struct ContentView: View {
     }
 
     private var authInputs: some View {
-        VStack(spacing: 14) {
-            TextField("Email", text: $auth.email)
+        let placeholderColor = primaryText.opacity(ThemeColors.placeholderOpacity(from: themeBackground))
+        return VStack(spacing: 14) {
+            TextField("", text: $auth.email, prompt: Text("Email").foregroundColor(placeholderColor))
                 .textInputAutocapitalization(.never)
                 .keyboardType(.emailAddress)
                 .padding()
@@ -198,7 +199,7 @@ struct ContentView: View {
                 .foregroundColor(primaryText)
                 .cornerRadius(12)
 
-            SecureField("Password", text: $auth.password)
+            SecureField("", text: $auth.password, prompt: Text("Password").foregroundColor(placeholderColor))
                 .padding()
                 .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
                 .foregroundColor(primaryText)

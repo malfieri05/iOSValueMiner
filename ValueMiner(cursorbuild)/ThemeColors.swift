@@ -41,6 +41,11 @@ struct ThemeColors {
         raw == "white" ? 0.13 : 0.08
     }
 
+    /// Placeholder text opacity in inputs. Higher on white theme so placeholders read on light gray fill.
+    static func placeholderOpacity(from raw: String) -> Double {
+        raw == "white" ? 0.65 : 0.5
+    }
+
     /// Opacity for accent-tinted backgrounds (pills, tags). Higher on white theme.
     static func accentTintOpacity(from raw: String) -> Double {
         raw == "white" ? 0.32 : 0.2

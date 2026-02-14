@@ -370,8 +370,13 @@ final class CategoryPillCell: UICollectionViewCell {
             let bgRaw = themeBackgroundRaw()
             container.backgroundColor = baseColor.withAlphaComponent(ThemeColors.pillAccentTintOpacity(from: bgRaw))
             label.textColor = bgRaw == "white" ? baseColor : (baseColor == .white ? .black : .white)
+            container.layer.borderWidth = 0
+            container.layer.borderColor = nil
         } else {
-            container.backgroundColor = themePrimaryTextColor().withAlphaComponent(ThemeColors.pillFillOpacity(from: themeBackgroundRaw()))
+            let bgRaw = themeBackgroundRaw()
+            container.backgroundColor = bgRaw == "white" ? .white : themePrimaryTextColor().withAlphaComponent(ThemeColors.pillFillOpacity(from: bgRaw))
+            container.layer.borderColor = (isAll ? baseColor : themeAccentColor()).cgColor
+            container.layer.borderWidth = ThemeColors.capsuleAndCardBorderWidth
         }
 
         deleteButton.isHidden = !(isEditing && isDeletable)

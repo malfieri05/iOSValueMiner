@@ -231,7 +231,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             ZStack {
                 HStack {
-                    Text("Your Mine.")
+                    Text("Your Clips.")
                         .font(.title2).bold()
                         .foregroundColor(primaryText)
                     Spacer()
@@ -383,15 +383,25 @@ struct DashboardView: View {
                     Task {
                         await vm.mine()
                         if vm.urlText.isEmpty && !vm.isLoading {
-                            showAddClipSheet = false
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                showAddClipSheet = false
+                            }
                         }
                     }
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Add Clip")
-                            .font(.system(size: 16, weight: .semibold))
+                        if vm.isLoading {
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(0.9)
+                            Text("Saving...")
+                                .font(.system(size: 16, weight: .semibold))
+                        } else {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Add Clip")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -433,7 +443,7 @@ struct DashboardView: View {
             } label: {
                 HStack(spacing: 6) {
                     if vm.isLoading { ProgressView().tint(accentColor) }
-                    Text(vm.isLoading ? "Mining..." : "Mine")
+                    Text(vm.isLoading ? "Saving..." : "Save")
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
@@ -466,7 +476,7 @@ struct DashboardView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(accentColor.opacity(0.8))
 
-                TextField("Search transcripts", text: $searchText)
+                TextField("", text: $searchText, prompt: Text("Search transcripts").foregroundColor(primaryText.opacity(themeBackground == "white" ? 0.65 : 0.6)))
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .foregroundColor(primaryText)
@@ -746,8 +756,8 @@ private struct NarrowActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 112, height: 40)
-            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-            .foregroundColor(accentColor)
+            .background(themeBackground == "white" ? accentColor : primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+            .foregroundColor(themeBackground == "white" ? (accentColor == .white ? .black : .white) : accentColor)
             .cornerRadius(12)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
@@ -777,8 +787,8 @@ private struct ActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 160, height: 40)
-            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-            .foregroundColor(accentColor)
+            .background(themeBackground == "white" ? accentColor : primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+            .foregroundColor(themeBackground == "white" ? (accentColor == .white ? .black : .white) : accentColor)
             .cornerRadius(12)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)

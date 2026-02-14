@@ -192,9 +192,10 @@ struct ClipCard: View {
         .background(Color.clear)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(accentColor.opacity(0.9), lineWidth: 1.2)
+                .stroke(accentColor.opacity(0.9), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
+        .cardDepthShadow()
         .contentShape(Rectangle())
         .onTapGesture {
             onExpand()

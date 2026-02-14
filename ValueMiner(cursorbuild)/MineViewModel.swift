@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import FirebaseAuth
+import FirebaseFirestore
 
 @MainActor
 final class MineViewModel: ObservableObject {
@@ -62,19 +63,33 @@ final class MineViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let lang = UserDefaults.standard.string(forKey: "transcriptLanguage") ?? "en"
-            let transcript = try await SearchAPI.fetchTranscript(for: trimmed, lang: lang)
-            let platform = detectPlatform(from: trimmed)
-            try await clipsStore.addClip(
-                userId: userId,
-                url: trimmed,
-                transcript: transcript,
-                platform: platform,
-                category: "Other"
-            )
+            try await enqueueClip(urlString: trimmed, userId: userId)
             urlText = ""
+            setInfoThenClear(after: 2.0, "Clip queued — it'll appear when ready.")
         } catch {
             setErrorThenClear(after: 2.2, error.localizedDescription)
+        }
+    }
+
+    /// Same as share extension: write to clipQueue for backend to process. Keeps in-app paste as fast as share.
+    private func enqueueClip(urlString: String, userId: String) async throws {
+        let db = Firestore.firestore()
+        let doc = db.collection("clipQueue").document()
+        try await doc.setData([
+            "userId": userId,
+            "url": urlString,
+            "status": "queued",
+            "createdAt": Timestamp(date: Date())
+        ])
+    }
+
+    private func setInfoThenClear(after seconds: TimeInterval, _ message: String) {
+        infoMessage = message
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            if infoMessage == message {
+                infoMessage = nil
+            }
         }
     }
 

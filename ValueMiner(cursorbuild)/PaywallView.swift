@@ -41,6 +41,7 @@ struct PaywallView: View {
                 dismiss()
             }
         }
+        .preferredColorScheme(themeBackground == "white" ? .light : .dark)
     }
 
     @available(iOS 17.0, *)

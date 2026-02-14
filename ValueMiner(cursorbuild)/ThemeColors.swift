@@ -20,9 +20,9 @@ enum ThemeAccent: String, CaseIterable {
 }
 
 struct ThemeColors {
-    static let defaultAccent = ThemeAccent.purple.rawValue
+    static let defaultAccent = ThemeAccent.blue.rawValue
     static let backgroundKey = "themeBackground"
-    static let defaultBackground = "black"
+    static let defaultBackground = "white"
 
     static func background(from raw: String) -> Color {
         raw == "white" ? .white : .black
@@ -66,9 +66,15 @@ struct ThemeColors {
         raw == "white" ? 0.25 : 0.2
     }
 
+    /// Border width for category capsules (thin).
+    static let capsuleAndCardBorderWidth: CGFloat = 1.2
+
+    /// Border width for clip cards in feed and profile tab boxes (2× capsule).
+    static let feedCardAndProfileBoxBorderWidth: CGFloat = 2.4
+
     static let options: [(id: ThemeAccent, name: String, color: Color)] = [
         (.purple, "Purple", Color(red: 164/255, green: 93/255, blue: 233/255)),
-        (.blue, "Blue", Color(red: 92/255, green: 161/255, blue: 255/255)),
+        (.blue, "Blue", Color(red: 0/255, green: 122/255, blue: 255/255)),
         (.green, "Green", Color(red: 80/255, green: 200/255, blue: 120/255)),
         (.red, "Red", Color(red: 244/255, green: 92/255, blue: 92/255)),
         (.orange, "Orange", Color(red: 255/255, green: 159/255, blue: 67/255)),
@@ -87,7 +93,7 @@ struct ThemeColors {
         case .purple:
             return UIColor(red: 164/255, green: 93/255, blue: 233/255, alpha: 1)
         case .blue:
-            return UIColor(red: 92/255, green: 161/255, blue: 255/255, alpha: 1)
+            return UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1)
         case .green:
             return UIColor(red: 80/255, green: 200/255, blue: 120/255, alpha: 1)
         case .red:
@@ -101,5 +107,14 @@ struct ThemeColors {
         case .white:
             return UIColor.white
         }
+    }
+}
+
+extension View {
+    /// Slight floating / depth effect for clip cards and profile boxes.
+    func cardDepthShadow() -> some View {
+        self
+            .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 4)
+            .shadow(color: Color.black.opacity(0.05), radius: 16, x: 0, y: 6)
     }
 }

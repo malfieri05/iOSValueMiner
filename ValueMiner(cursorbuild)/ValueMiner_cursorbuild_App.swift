@@ -11,6 +11,27 @@ import FirebaseCore
 import FirebaseAuth
 import UserNotifications
 
+private struct LaunchSplashWrapper: View {
+    @State private var showSplash = true
+
+    var body: some View {
+        Group {
+            if showSplash {
+                SplashView()
+                    .transition(.opacity)
+            } else {
+                ContentView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: showSplash)
+        .task {
+            try? await Task.sleep(for: .seconds(1.0))
+            showSplash = false
+        }
+    }
+}
+
 @main
 struct ValueMiner_cursorguild_App: App {
     init() {
@@ -34,7 +55,7 @@ struct ValueMiner_cursorguild_App: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LaunchSplashWrapper()
         }
         .modelContainer(sharedModelContainer)
     }

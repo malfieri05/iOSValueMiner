@@ -34,7 +34,7 @@ private struct FloatingPrimaryButtonStyle: ButtonStyle {
             .background(fill)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(border, lineWidth: 1)
+                    .stroke(border, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
             )
             .cornerRadius(12)
             // Subtle depth / "floating" effect
@@ -202,9 +202,10 @@ struct SettingsView: View {
         .background(Color.clear)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
+                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
+        .cardDepthShadow()
         .sheet(isPresented: $showShareSheetHelp) {
             ShareSheetOnboardingView(onDismiss: {
                 showShareSheetHelp = false
@@ -246,9 +247,10 @@ struct SettingsView: View {
         .background(Color.clear)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
+                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
+        .cardDepthShadow()
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
@@ -272,9 +274,10 @@ struct SettingsView: View {
         .background(Color.clear)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
+                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
+        .cardDepthShadow()
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
@@ -444,9 +447,10 @@ struct SettingsView: View {
         .background(Color.clear)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: 1.2)
+                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
+        .cardDepthShadow()
         .padding(.horizontal, 16)
     }
 
@@ -767,6 +771,7 @@ private struct AccountSettingsSheet: View {
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
         ZStack {
@@ -781,11 +786,11 @@ private struct AccountSettingsSheet: View {
                     .foregroundColor(primaryText.opacity(0.8))
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                TextField("New email address", text: $newEmail)
+                TextField("", text: $newEmail, prompt: Text("New email address").foregroundColor(primaryText.opacity(0.6)))
                     .textInputAutocapitalization(.never)
                     .keyboardType(.emailAddress)
                     .padding(12)
-                    .background(primaryText.opacity(0.12))
+                    .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
                     .foregroundColor(primaryText)
                     .cornerRadius(12)
 
@@ -794,8 +799,8 @@ private struct AccountSettingsSheet: View {
                         .font(.system(size: 14, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundColor(primaryText)
-                        .background(primaryText.opacity(0.18))
+                        .foregroundColor(themeBackground == "white" ? (accentColor == .white ? .black : .white) : primaryText)
+                        .background(themeBackground == "white" ? accentColor : primaryText.opacity(0.18))
                         .cornerRadius(12)
                 }
                 .disabled(isUpdating)
@@ -806,7 +811,11 @@ private struct AccountSettingsSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .foregroundColor(primaryText)
-                        .background(primaryText.opacity(0.14))
+                        .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(accentColor, lineWidth: 1)
+                        )
                         .cornerRadius(12)
                 }
                 .disabled(isUpdating)
@@ -821,16 +830,17 @@ private struct AccountSettingsSheet: View {
             .padding(20)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(backgroundColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(primaryText.opacity(0.06))
+                            .fill(primaryText.opacity(0.04))
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(accentColor.opacity(0.7), lineWidth: 1)
+                    .stroke(accentColor.opacity(0.7), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
             )
+            .cardDepthShadow()
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
         }
@@ -864,7 +874,7 @@ private struct ThemeColorPicker: View {
                                     .frame(width: 44, height: 44)
                                     .overlay(
                                         Circle()
-                                            .stroke(primaryText.opacity(0.35), lineWidth: 1)
+                                            .stroke(primaryText.opacity(0.35), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
                                     )
                                     .overlay(
                                         Group {
@@ -904,7 +914,7 @@ private struct ThemeColorPicker: View {
                                     .frame(width: 28, height: 28)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 6)
-                                            .stroke(primaryText.opacity(0.4), lineWidth: 1)
+                                            .stroke(primaryText.opacity(0.4), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
                                     )
                                     .overlay(
                                         Group {

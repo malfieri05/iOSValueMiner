@@ -91,7 +91,20 @@ struct ContentView: View {
                         }
                     )
                     .overlay(
-                        Group {
+                        ZStack {
+                            if selectedClip != nil {
+                                Color.black.opacity(0.35)
+                                    .ignoresSafeArea()
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                                            selectedClip = nil
+                                            selectedClipNumber = nil
+                                        }
+                                    }
+                                    .transition(.opacity)
+                                    .zIndex(9)
+                            }
                             if let clip = selectedClip {
                                 ClipDetailModal(
                                     clip: clip,
@@ -436,13 +449,7 @@ private struct ClipDetailModal: View {
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { onDismiss() }
-
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     categoryCapsule
                     Spacer()
@@ -513,7 +520,6 @@ private struct ClipDetailModal: View {
             .frame(maxHeight: 481)
             .padding(.horizontal, 24)
             .onTapGesture {}
-        }
     }
 
     private var categoryCapsule: some View {

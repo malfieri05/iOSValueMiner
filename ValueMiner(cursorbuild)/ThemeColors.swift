@@ -22,7 +22,7 @@ enum ThemeAccent: String, CaseIterable {
 struct ThemeColors {
     static let defaultAccent = ThemeAccent.blue.rawValue
     static let backgroundKey = "themeBackground"
-    static let defaultBackground = "white"
+    static let defaultBackground = "black"
 
     static func background(from raw: String) -> Color {
         raw == "white" ? .white : .black
@@ -77,6 +77,49 @@ struct ThemeColors {
     /// Border width for clip cards in feed and profile tab boxes (2× capsule).
     static let feedCardAndProfileBoxBorderWidth: CGFloat = 2.4
 
+    /// Corner radius for inputs and buttons (URL bar, Save, Add Category, search, etc.) to match clip cards.
+    static let inputAndButtonCornerRadius: CGFloat = 16
+
+    // MARK: - Liquid glass / raised depth (clip cards, etc.)
+
+    /// Translucent fill for glass-style cards. Background shows through.
+    static func glassCardBackground(from raw: String) -> Color {
+        raw == "white" ? Color.white.opacity(0.82) : Color.white.opacity(0.06)
+    }
+
+    /// Opacity for top-left highlight gradient on glass cards (glossy edge).
+    static let glassHighlightOpacity: Double = 0.28
+
+    /// Opacity for subtle inner-shadow gradient on glass cards (top-left recess).
+    static let glassInnerShadowOpacity: Double = 0.045
+
+    /// Slightly lighter highlight for inputs/bars (smaller surface).
+    static let glassInputHighlightOpacity: Double = 0.22
+
+    /// Stronger highlight for accent buttons (Save, Add Clip, FAB).
+    static let glassButtonHighlightOpacity: Double = 0.38
+
+    // MARK: - Shadow (barely noticeable on black background)
+
+    static func shadowOpacityCardPrimary(from raw: String) -> Double {
+        raw == "white" ? 0.12 : 0.012
+    }
+    static func shadowOpacityCardSecondary(from raw: String) -> Double {
+        raw == "white" ? 0.06 : 0.006
+    }
+    static func shadowOpacityBar(from raw: String) -> Double {
+        raw == "white" ? 0.05 : 0
+    }
+    static func shadowOpacityButton(from raw: String) -> Double {
+        raw == "white" ? 0.07 : 0
+    }
+    static func shadowOpacityFABPrimary(from raw: String) -> Double {
+        raw == "white" ? 0.2 : 0.02
+    }
+    static func shadowOpacityFABSecondary(from raw: String) -> Double {
+        raw == "white" ? 0.12 : 0.01
+    }
+
     static let options: [(id: ThemeAccent, name: String, color: Color)] = [
         (.purple, "Purple", Color(red: 164/255, green: 93/255, blue: 233/255)),
         (.blue, "Blue", Color(red: 0/255, green: 122/255, blue: 255/255)),
@@ -116,10 +159,74 @@ struct ThemeColors {
 }
 
 extension View {
-    /// Slight floating / depth effect for clip cards and profile boxes.
-    func cardDepthShadow() -> some View {
-        self
-            .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 4)
-            .shadow(color: Color.black.opacity(0.05), radius: 16, x: 0, y: 6)
+    /// Raised / liquid glass depth: soft drop shadow; subtler on black background.
+    func cardDepthShadow(themeBackground: String = "white") -> some View {
+        Group {
+            if themeBackground == "white" {
+                self
+                    .shadow(color: Color.black.opacity(ThemeColors.shadowOpacityCardPrimary(from: themeBackground)), radius: 8, x: 2, y: 4)
+                    .shadow(color: Color.black.opacity(ThemeColors.shadowOpacityCardSecondary(from: themeBackground)), radius: 14, x: 0, y: 6)
+            } else {
+                self
+            }
+        }
+    }
+
+    /// Liquid glass style for input bars (URL field, search bar). No inner shadow/highlight/stroke/shadow in dark mode.
+    func glassBarStyle(themeBackground: String, strokeColor: Color, cornerRadius: CGFloat = ThemeColors.inputAndButtonCornerRadius) -> some View {
+        Group {
+            if themeBackground == "white" {
+                self
+                    .background(ThemeColors.glassCardBackground(from: themeBackground))
+                    .overlay(
+                        LinearGradient(
+                            colors: [Color.black.opacity(ThemeColors.glassInnerShadowOpacity), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                        .allowsHitTesting(false)
+                    )
+                    .overlay(
+                        LinearGradient(
+                            colors: [Color.white.opacity(ThemeColors.glassInputHighlightOpacity), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                        .allowsHitTesting(false)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(strokeColor.opacity(0.25), lineWidth: 1)
+                            .allowsHitTesting(false)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .shadow(color: Color.black.opacity(ThemeColors.shadowOpacityBar(from: themeBackground)), radius: 6, x: 1, y: 3)
+            } else {
+                self
+                    .background(ThemeColors.glassCardBackground(from: themeBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            }
+        }
+    }
+
+    /// Glossy top-left highlight for accent buttons. No highlight in dark mode.
+    func glassButtonHighlight(themeBackground: String) -> some View {
+        Group {
+            if themeBackground == "white" {
+                self.overlay(
+                    LinearGradient(
+                        colors: [Color.white.opacity(ThemeColors.glassButtonHighlightOpacity), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: ThemeColors.inputAndButtonCornerRadius, style: .continuous))
+                    .allowsHitTesting(false)
+                )
+            } else {
+                self
+            }
+        }
     }
 }

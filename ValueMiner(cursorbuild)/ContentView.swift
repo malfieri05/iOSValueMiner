@@ -23,6 +23,8 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var mineTabResetCounter = 0
     @State private var appleNonce: String?
+    @State private var cachedCombinedCategories: [String] = []
+    @State private var cachedSelectedClip: Clip?
     @AppStorage("didShowShareSheetIntro") private var didShowShareSheetIntro = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
@@ -43,6 +45,24 @@ struct ContentView: View {
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
+    
+    // Cached app icon - computed once
+    private static let cachedAppIconName: String? = {
+        guard
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let files = primary["CFBundleIconFiles"] as? [String],
+            let name = files.last
+        else { return nil }
+        return name
+    }()
+    
+    private static let cachedAppIconUIImage: UIImage? = {
+        if let name = cachedAppIconName, let img = UIImage(named: name) {
+            return img
+        }
+        return UIImage(named: "AppIcon")
+    }()
 
     var body: some View {
         Group {
@@ -100,16 +120,25 @@ struct ContentView: View {
                                         withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                                             selectedClip = nil
                                             selectedClipNumber = nil
+                                            cachedSelectedClip = nil
                                         }
                                     }
                                     .transition(.opacity)
                                     .zIndex(9)
                             }
-                            if let clip = selectedClip {
+                            if let selected = selectedClip {
+                                let clip: Clip = {
+                                    if let cached = cachedSelectedClip, cached.id == selected.id {
+                                        return cached
+                                    }
+                                    let found = clipsStore.clip(withId: selected.id) ?? selected
+                                    cachedSelectedClip = found
+                                    return found
+                                }()
                                 ClipDetailModal(
                                     clip: clip,
                                     clipNumber: selectedClipNumber,
-                                    categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
+                                    categories: cachedCombinedCategories,
                                     onSelectCategory: { category in
                                         Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
                                     },
@@ -117,6 +146,23 @@ struct ContentView: View {
                                         withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                                             selectedClip = nil
                                             selectedClipNumber = nil
+                                            cachedSelectedClip = nil
+                                        }
+                                    },
+                                    onSaveNotes: { notes in
+                                        Task { try? await clipsStore.updateNotes(userId: auth.userId ?? "", clipId: clip.id, notes: notes) }
+                                    },
+                                    onDelete: {
+                                        guard let uid = auth.userId else { return }
+                                        Task {
+                                            try? await clipsStore.deleteClip(userId: uid, clipId: clip.id)
+                                            await MainActor.run {
+                                                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                                                    selectedClip = nil
+                                                    selectedClipNumber = nil
+                                                    cachedSelectedClip = nil
+                                                }
+                                            }
                                         }
                                     }
                                 )
@@ -141,31 +187,37 @@ struct ContentView: View {
                 categoriesStore.stopListening()
             }
         }
+        .onChange(of: categoriesStore.customCategories) { _, _ in updateCachedCombinedCategories() }
+        .onChange(of: categoriesStore.defaultCategories) { _, _ in updateCachedCombinedCategories() }
+        .onChange(of: categoriesStore.removedDefaultCategories) { _, _ in updateCachedCombinedCategories() }
+        .onAppear { updateCachedCombinedCategories() }
     }
 
     private var authView: some View {
-        ZStack {
-            backgroundColor.ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                backgroundColor.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    Spacer(minLength: 0)
-                    authHeader
-                    authInputs
-                    authActions
-                    Spacer(minLength: 0)
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Spacer(minLength: 0)
+                        authHeader
+                        authInputs
+                        authActions
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height * 0.75)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 24)
                 }
-                .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height * 0.75)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 24)
+                .scrollDismissesKeyboard(.interactively)
             }
-            .scrollDismissesKeyboard(.interactively)
         }
     }
 
     private var authHeader: some View {
         VStack(spacing: 10) {
-            if let icon = appIconUIImage {
+            if let icon = Self.cachedAppIconUIImage {
                 Image(uiImage: icon)
                     .resizable()
                     .scaledToFit()
@@ -286,34 +338,32 @@ struct ContentView: View {
         .padding(.top, 6)
     }
 
-    private var appIconUIImage: UIImage? {
-        if let name = primaryAppIconName(), let img = UIImage(named: name) {
-            return img
-        }
-        // Some builds may expose the icon under this name; safe fallback.
-        return UIImage(named: "AppIcon")
-    }
-
-    private func primaryAppIconName() -> String? {
-        guard
-            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
-            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
-            let files = primary["CFBundleIconFiles"] as? [String],
-            let name = files.last
-        else { return nil }
-        return name
-    }
 
     private func tabItem(systemImage: String) -> some View {
         Image(systemName: systemImage)
             .font(.system(size: 20, weight: .semibold))
     }
 
-    private func lightHaptic() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+    private func updateCachedCombinedCategories() {
+        cachedCombinedCategories = categoriesStore.customCategories + categoriesStore.activeDefaultCategories
     }
+
+    fileprivate static let lightHapticGenerator = UIImpactFeedbackGenerator(style: .light)
+    fileprivate static let linkHapticGenerator = UIImpactFeedbackGenerator(style: .medium)
+    private func lightHaptic() {
+        Self.lightHapticGenerator.prepare()
+        Self.lightHapticGenerator.impactOccurred()
+    }
+}
+
+private func contentViewLightHaptic() {
+    ContentView.lightHapticGenerator.prepare()
+    ContentView.lightHapticGenerator.impactOccurred()
+}
+
+private func contentViewLinkHaptic() {
+    ContentView.linkHapticGenerator.prepare()
+    ContentView.linkHapticGenerator.impactOccurred()
 }
 
 private struct VerifyEmailView: View {
@@ -437,6 +487,13 @@ private struct ClipDetailModal: View {
     let categories: [String]
     let onSelectCategory: (String) -> Void
     let onDismiss: () -> Void
+    let onSaveNotes: (String) -> Void
+    let onDelete: () -> Void
+    @State private var isNotesExpanded = false
+    @State private var isTranscriptExpanded = true
+    @State private var showNotesSheet = false
+    @State private var showShareSheet = false
+    @State private var showDeleteConfirm = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     private let dateFormatter: DateFormatter = {
@@ -445,6 +502,7 @@ private struct ClipDetailModal: View {
         return df
     }()
 
+    @Environment(\.openURL) private var openURL
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
@@ -472,17 +530,19 @@ private struct ClipDetailModal: View {
                         .underline(true, color: primaryText.opacity(0.6))
 
                     if let url = URL(string: clip.url) {
-                        Link(destination: url) {
+                        Button {
+                            contentViewLinkHaptic()
+                            openURL(url)
+                        } label: {
                             Image(systemName: "link")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 13.65, weight: .medium))
                                 .foregroundColor(accentColor)
                         }
-                        .simultaneousGesture(TapGesture().onEnded {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        })
+                        .buttonStyle(.plain)
+                        .onAppear { ContentView.linkHapticGenerator.prepare() }
                     } else {
                         Image(systemName: "link")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13.65, weight: .medium))
                             .foregroundColor(accentColor.opacity(0.35))
                     }
 
@@ -492,24 +552,159 @@ private struct ClipDetailModal: View {
                 }
 
                 ScrollView {
-                    Text(capitalizeFirstLetter(clip.transcript))
-                        .font(.system(size: 16, weight: .light))
-                        .lineSpacing(3)
-                        .foregroundColor(primaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Personal notes (above transcript)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button {
+                                contentViewLightHaptic()
+                                withAnimation(.easeInOut(duration: 0.2)) { isNotesExpanded.toggle() }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "square.and.pencil")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(accentColor)
+                                    Text("Personal notes")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(primaryText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(primaryText.opacity(0.7))
+                                        .rotationEffect(.degrees(isNotesExpanded ? 90 : 0))
+                                }
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if isNotesExpanded {
+                                if let notes = clip.personalNotes, !notes.isEmpty {
+                                    Text(notes)
+                                        .font(.system(size: 15, weight: .regular))
+                                        .lineSpacing(3)
+                                        .foregroundColor(primaryText)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Button {
+                                        showNotesSheet = true
+                                    } label: {
+                                        Text("Edit notes")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(accentColor)
+                                    }
+                                    .padding(.top, 4)
+                                } else {
+                                    Button {
+                                        showNotesSheet = true
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.system(size: 14))
+                                            Text("Add notes")
+                                                .font(.system(size: 14, weight: .medium))
+                                        }
+                                        .foregroundColor(accentColor)
+                                    }
+                                    .padding(.top, 4)
+                                }
+                            }
+                        }
+
+                        // Collapsible transcript
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button {
+                                contentViewLightHaptic()
+                                withAnimation(.easeInOut(duration: 0.2)) { isTranscriptExpanded.toggle() }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "person.wave.2")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(accentColor)
+                                    Text("Transcript")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(primaryText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(primaryText.opacity(0.7))
+                                        .rotationEffect(.degrees(isTranscriptExpanded ? 90 : 0))
+                                }
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if isTranscriptExpanded {
+                                Text(capitalizeFirstLetter(clip.transcript))
+                                    .font(.system(size: 16, weight: .light))
+                                    .lineSpacing(3)
+                                    .foregroundColor(primaryText)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
                 }
                 .padding(.top, 10)
+                .sheet(isPresented: $showNotesSheet) {
+                    ClipNotesSheet(
+                        title: "Clip \(clipNumber ?? 0)",
+                        initialNotes: clip.personalNotes ?? "",
+                        onSave: { notes in
+                            onSaveNotes(notes)
+                            showNotesSheet = false
+                        },
+                        onCancel: { showNotesSheet = false }
+                    )
+                }
 
                 Spacer(minLength: 10)
 
                 HStack {
+                    Menu {
+                        if let url = URL(string: clip.url) {
+                            Button {
+                                contentViewLightHaptic()
+                                showShareSheet = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text("Share Clip Link")
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                            }
+                        }
+                        Button(role: .destructive) {
+                            contentViewLightHaptic()
+                            showDeleteConfirm = true
+                        } label: {
+                            Text("Delete Clip")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(accentColor)
+                            .padding(7)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
                     Spacer()
+
                     Text(dateFormatter.string(from: clip.createdAt))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(primaryText.opacity(0.6))
                 }
             }
             .padding(16)
+            .sheet(isPresented: $showShareSheet) {
+                if let url = URL(string: clip.url) {
+                    ModalShareSheetView(activityItems: [url])
+                }
+            }
+            .alert("Delete Clip?", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) { onDelete() }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Are you sure you want to delete this clip?")
+            }
             .background(backgroundColor)
             .cornerRadius(16)
             .overlay(
@@ -536,6 +731,12 @@ private struct ClipDetailModal: View {
                 .padding(.vertical, 6)
                 .background(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
                 .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(accentColor.opacity(themeBackground == "white" ? 0.5 : 0.35), lineWidth: ThemeColors.capsuleAndCardBorderWidth)
+                )
+                .fixedSize(horizontal: true, vertical: false)
+                .animation(.spring(response: 0.32, dampingFraction: 0.88), value: clip.category)
         }
     }
 
@@ -551,5 +752,15 @@ private struct ClipDetailModal: View {
         return String(first).uppercased() + text.dropFirst()
     }
 
+}
+
+private struct ModalShareSheetView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 

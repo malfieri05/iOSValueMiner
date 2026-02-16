@@ -103,7 +103,7 @@ struct SettingsView: View {
                         
                         reportCard
 
-                        Text("ScrollMiner saves links and text transcripts only. No video or audio is downloaded.")
+                        Text("ScrollMine saves links and text transcripts only. No video or audio is downloaded.")
                             .font(.caption)
                             .foregroundColor(primaryText.opacity(0.5))
                             .multilineTextAlignment(.center)
@@ -205,7 +205,7 @@ struct SettingsView: View {
                 .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
-        .cardDepthShadow()
+        .cardDepthShadow(themeBackground: themeBackground)
         .sheet(isPresented: $showShareSheetHelp) {
             ShareSheetOnboardingView(onDismiss: {
                 showShareSheetHelp = false
@@ -250,7 +250,7 @@ struct SettingsView: View {
                 .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
-        .cardDepthShadow()
+        .cardDepthShadow(themeBackground: themeBackground)
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
@@ -277,7 +277,7 @@ struct SettingsView: View {
                 .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
-        .cardDepthShadow()
+        .cardDepthShadow(themeBackground: themeBackground)
         .frame(maxWidth: .infinity)
         .frame(height: 110)
     }
@@ -450,7 +450,7 @@ struct SettingsView: View {
                 .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
         .cornerRadius(16)
-        .cardDepthShadow()
+        .cardDepthShadow(themeBackground: themeBackground)
         .padding(.horizontal, 16)
     }
 
@@ -752,10 +752,10 @@ struct SettingsView: View {
         scrollReportIntervalDays = min(max(next, 1), 7)
     }
 
+    private static let lightHapticGenerator = UIImpactFeedbackGenerator(style: .light)
     private func lightHaptic() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        Self.lightHapticGenerator.prepare()
+        Self.lightHapticGenerator.impactOccurred()
     }
 }
 
@@ -840,7 +840,7 @@ private struct AccountSettingsSheet: View {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .stroke(accentColor.opacity(0.7), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
             )
-            .cardDepthShadow()
+            .cardDepthShadow(themeBackground: themeBackground)
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
         }

@@ -177,10 +177,14 @@ struct ReorderableCategoryBarRepresentable: UIViewRepresentable {
             tapFeedback.prepare()
             tapFeedback.impactOccurred()
             let category = parent.categories[indexPath.item]
+            let previousSelectedId = parent.selectedCategoryId
+            let previousIndexPath: IndexPath? = parent.categories.firstIndex(where: { $0.id == previousSelectedId }).map { IndexPath(item: $0, section: 0) }
             parent.selectedCategoryId = category.id
             parent.onSelect?(category)
             collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: true)
-            collectionView.reloadData()
+            var pathsToReload = [indexPath]
+            if let prev = previousIndexPath, prev != indexPath { pathsToReload.append(prev) }
+            collectionView.reloadItems(at: pathsToReload)
         }
 
         func collectionView(_ collectionView: UICollectionView, canMoveItemAt indexPath: IndexPath) -> Bool {
@@ -191,16 +195,24 @@ struct ReorderableCategoryBarRepresentable: UIViewRepresentable {
             guard collectionView.numberOfItems(inSection: proposedIndexPath.section) > 1 else {
                 return originalIndexPath
             }
-            return proposedIndexPath.item == 0 ? IndexPath(item: 1, section: proposedIndexPath.section) : proposedIndexPath
+            let count = collectionView.numberOfItems(inSection: proposedIndexPath.section)
+            if proposedIndexPath.item == 0 { return IndexPath(item: 1, section: proposedIndexPath.section) }
+            if proposedIndexPath.item == count - 1 { return IndexPath(item: max(1, count - 2), section: proposedIndexPath.section) }
+            return proposedIndexPath
         }
 
         func collectionView(_ collectionView: UICollectionView, moveItemAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
             var items = parent.categories
             let moved = items.remove(at: sourceIndexPath.item)
             items.insert(moved, at: destinationIndexPath.item)
-            if let allIndex = items.firstIndex(where: isLockedCategory), allIndex != 0 {
-                let locked = items.remove(at: allIndex)
-                items.insert(locked, at: 0)
+            // Enforce All at 0, Other at end
+            if let allIndex = items.firstIndex(where: { $0.title.lowercased() == "all" }), allIndex != 0 {
+                let all = items.remove(at: allIndex)
+                items.insert(all, at: 0)
+            }
+            if let otherIndex = items.firstIndex(where: { $0.title.lowercased() == "other" }), otherIndex != items.count - 1 {
+                let other = items.remove(at: otherIndex)
+                items.append(other)
             }
             parent.categories = items
             CategoryOrder.persist(order: items.map { $0.id }, key: parent.persistenceKey)
@@ -265,14 +277,12 @@ struct ReorderableCategoryBarRepresentable: UIViewRepresentable {
             guard let cell = collectionView?.cellForItem(at: indexPath) else { return }
             UIView.animate(withDuration: 0.12) {
                 cell.transform = lifted ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
-                cell.layer.shadowOpacity = lifted ? 0.25 : 0
-                cell.layer.shadowRadius = lifted ? 8 : 0
-                cell.layer.shadowOffset = CGSize(width: 0, height: 3)
             }
         }
 
         private func isLockedCategory(_ category: Category) -> Bool {
-            category.title.lowercased() == "all"
+            let lower = category.title.lowercased()
+            return lower == "all" || lower == "other"
         }
     }
 }
@@ -298,6 +308,7 @@ final class CategoryPillCell: UICollectionViewCell {
 
     private func setup() {
         contentView.backgroundColor = .clear
+
         container.translatesAutoresizingMaskIntoConstraints = false
         container.layer.cornerRadius = 18
         if #available(iOS 13.0, *) {
@@ -375,7 +386,8 @@ final class CategoryPillCell: UICollectionViewCell {
         } else {
             let bgRaw = themeBackgroundRaw()
             container.backgroundColor = bgRaw == "white" ? .white : themePrimaryTextColor().withAlphaComponent(ThemeColors.pillFillOpacity(from: bgRaw))
-            container.layer.borderColor = (isAll ? baseColor : themeAccentColor()).cgColor
+            let borderColor = (isAll ? baseColor : themeAccentColor())
+            container.layer.borderColor = borderColor.withAlphaComponent(bgRaw == "white" ? 1.0 : 0.25).cgColor
             container.layer.borderWidth = ThemeColors.capsuleAndCardBorderWidth
         }
 

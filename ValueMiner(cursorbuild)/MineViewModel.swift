@@ -21,11 +21,23 @@ final class MineViewModel: ObservableObject {
     let auth: AuthViewModel
     let clipsStore: ClipsStore
     let subscriptionManager: SubscriptionManager
+    
+    private var normalizedUrlsSet: Set<String> = []
+    private var cachedMonthlyCount: Int?
+    private var cachedMonthStart: Date?
+    private var clipsObserver: AnyCancellable?
 
     init(auth: AuthViewModel, clipsStore: ClipsStore, subscriptionManager: SubscriptionManager) {
         self.auth = auth
         self.clipsStore = clipsStore
         self.subscriptionManager = subscriptionManager
+        
+        // Observe clips changes to update cache
+        clipsObserver = clipsStore.$clips.sink { [weak self] clips in
+            guard let self = self else { return }
+            self.normalizedUrlsSet = Set(clips.map { self.normalizeUrl($0.url) })
+            self.cachedMonthlyCount = nil // Invalidate monthly count cache
+        }
     }
 
     func mine() async {
@@ -44,7 +56,7 @@ final class MineViewModel: ObservableObject {
         }
 
         let normalized = normalizeUrl(trimmed)
-        if clipsStore.clips.contains(where: { normalizeUrl($0.url) == normalized }) {
+        if normalizedUrlsSet.contains(normalized) {
             infoMessage = "Clip previously mined."
             return
         }
@@ -119,7 +131,20 @@ final class MineViewModel: ObservableObject {
 
     private func currentMonthClipCount() -> Int {
         let calendar = Calendar.current
-        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
-        return clipsStore.clips.filter { $0.createdAt >= startOfMonth }.count
+        let now = Date()
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
+        
+        // Check if cache is still valid (same month)
+        if let cached = cachedMonthlyCount,
+           let cachedStart = cachedMonthStart,
+           calendar.isDate(cachedStart, equalTo: startOfMonth, toGranularity: .month) {
+            return cached
+        }
+        
+        // Calculate and cache
+        let count = clipsStore.clips.filter { $0.createdAt >= startOfMonth }.count
+        cachedMonthlyCount = count
+        cachedMonthStart = startOfMonth
+        return count
     }
 }

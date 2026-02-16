@@ -10,6 +10,7 @@
 import SwiftUI
 import UIKit
 import FirebaseFirestore
+import Foundation
 
 struct DashboardView: View {
     let clips: [Clip]
@@ -33,6 +34,14 @@ struct DashboardView: View {
     @State private var searchText = ""
     @State private var searchRowIndex = 0
     @State private var showAddClipSheet = false
+    @State private var cachedOrderedCategoryTitles: [String] = []
+    @State private var categoryIdMapCache: [String: UUID] = [:]
+    @State private var pendingUserDefaultsWrite: DispatchWorkItem?
+    @State private var pendingSearchUpdate: DispatchWorkItem?
+    @State private var previousClipsCount: Int = 0
+    @State private var plusOneOpacity: Double = 0
+    @State private var plusOneOffset: CGFloat = 0
+    @State private var didJustSaveFromInApp: Bool = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
@@ -41,11 +50,7 @@ struct DashboardView: View {
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
 
     private var orderedCategoryTitles: [String] {
-        let allCategory = categoriesStore.defaultCategories.first! // "All"
-        let otherCategories = categoriesStore.defaultCategories.dropFirst().filter { $0 != "Other" }
-        let otherCategory = "Other"
-        // New custom categories appear in the first slot to the right of "All"
-        return [allCategory] + categoriesStore.customCategories + otherCategories + [otherCategory]
+        cachedOrderedCategoryTitles
     }
 
     private var totalCategoryCount: Int {
@@ -53,7 +58,12 @@ struct DashboardView: View {
     }
 
     private var deletableTitles: Set<String> {
-        Set(categoriesStore.customCategories)
+        let custom = Set(categoriesStore.customCategories)
+        let deletableDefaults = Set(categoriesStore.activeDefaultCategories.filter { name in
+            let lower = name.lowercased()
+            return lower != "all" && lower != "other"
+        })
+        return custom.union(deletableDefaults)
     }
 
 
@@ -77,17 +87,60 @@ struct DashboardView: View {
                         .frame(width: 56, height: 56)
                         .background(accentColor)
                         .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.35), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            Group {
+                                if themeBackground == "white" {
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.45), .clear],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    .clipShape(Circle())
+                                }
+                            }
+                            .allowsHitTesting(false)
+                        )
+                        .shadow(color: Color.black.opacity(themeBackground == "white" ? 0.2 : 0), radius: themeBackground == "white" ? 10 : 0, x: 2, y: 5)
+                        .shadow(color: Color.black.opacity(themeBackground == "white" ? 0.12 : 0), radius: themeBackground == "white" ? 16 : 0, x: 0, y: 6)
                 }
                 .padding(.trailing, 20)
                 .padding(.bottom, 8)
             }
         }
         .onAppear {
-            syncCategories(with: orderedCategoryTitles)
+            updateCachedOrderedCategoryTitles()
+            syncCategories(with: cachedOrderedCategoryTitles)
+            previousClipsCount = clips.count
         }
-        .onChange(of: orderedCategoryTitles) { _, newTitles in
-            syncCategories(with: newTitles)
+        .onChange(of: clips.count) { oldCount, newCount in
+            guard newCount == oldCount + 1 else {
+                previousClipsCount = newCount
+                return
+            }
+            previousClipsCount = newCount
+            guard didJustSaveFromInApp else { return }
+            didJustSaveFromInApp = false
+            plusOneOpacity = 1
+            plusOneOffset = 0
+            withAnimation(.easeOut(duration: 0.95)) {
+                plusOneOpacity = 0
+                plusOneOffset = -26
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                plusOneOffset = 0
+            }
+        }
+        .onChange(of: categoriesStore.customCategories) { _, _ in
+            updateCachedOrderedCategoryTitles()
+            syncCategories(with: cachedOrderedCategoryTitles)
+        }
+        .onChange(of: categoriesStore.defaultCategories) { _, _ in
+            updateCachedOrderedCategoryTitles()
+            syncCategories(with: cachedOrderedCategoryTitles)
+        }
+        .onChange(of: categoriesStore.removedDefaultCategories) { _, _ in
+            updateCachedOrderedCategoryTitles()
+            syncCategories(with: cachedOrderedCategoryTitles)
         }
         .onChange(of: categories) { _, newCategories in
             if let selectedId = selectedCategoryId,
@@ -128,7 +181,7 @@ struct DashboardView: View {
                     .textInputAutocapitalization(.never)
                     .padding(12)
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .cornerRadius(ThemeColors.inputAndButtonCornerRadius)
                     .onChange(of: newCategoryName) { _, newValue in
                         newCategoryName = clampCategoryName(newValue)
                     }
@@ -170,6 +223,13 @@ struct DashboardView: View {
         }
     }
 
+    private func updateCachedOrderedCategoryTitles() {
+        let allCategory = "All"
+        let otherCategory = "Other"
+        let middleDefaults = categoriesStore.activeDefaultCategories.filter { $0 != "All" && $0 != "Other" }
+        cachedOrderedCategoryTitles = [allCategory] + categoriesStore.customCategories + middleDefaults + [otherCategory]
+    }
+    
     private func syncCategories(with titles: [String]) {
         guard !titles.isEmpty else {
             categories = []
@@ -178,24 +238,65 @@ struct DashboardView: View {
             return
         }
 
+        // Load category ID map from UserDefaults once
+        if categoryIdMapCache.isEmpty {
+            let mapKey = "category_id_map_\(userId ?? "anon")"
+            if let map = UserDefaults.standard.dictionary(forKey: mapKey) as? [String: String] {
+                for (title, uuidString) in map {
+                    if let uuid = UUID(uuidString: uuidString) {
+                        categoryIdMapCache[title] = uuid
+                    }
+                }
+            }
+        }
+
         // Build the list in the exact order of titles, preserving UUIDs
         var newList: [Category] = []
+        var needsUserDefaultsUpdate = false
+        
         for title in titles {
             // Try to find existing category with same title to preserve its UUID
             if let existing = categories.first(where: { $0.title == title }) {
                 newList.append(existing)
             } else {
-                // New category - create with stable UUID
-                newList.append(Category(id: idForTitle(title), title: title))
+                // Check cache first, then UserDefaults
+                let uuid: UUID
+                if let cached = categoryIdMapCache[title] {
+                    uuid = cached
+                } else {
+                    uuid = UUID()
+                    categoryIdMapCache[title] = uuid 
+                    needsUserDefaultsUpdate = true
+                }
+                newList.append(Category(id: uuid, title: title))
             }
         }
 
         categories = newList
         
-        // Persist this order to UserDefaults so ReorderableCategoryBar respects it
-        let persistenceKey = "category_bar_order_\(userId ?? "anon")"
-        let ids = newList.map { $0.id.uuidString }
-        UserDefaults.standard.set(ids, forKey: persistenceKey)
+        // Debounce UserDefaults writes
+        if needsUserDefaultsUpdate {
+            pendingUserDefaultsWrite?.cancel()
+            let userIdValue = userId ?? "anon"
+            let mapToSave = categoryIdMapCache.mapValues { $0.uuidString }
+            let workItem = DispatchWorkItem {
+                let mapKey = "category_id_map_\(userIdValue)"
+                UserDefaults.standard.set(mapToSave, forKey: mapKey)
+            }
+            pendingUserDefaultsWrite = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+        }
+        
+        // Persist order to UserDefaults (debounced)
+        pendingUserDefaultsWrite?.cancel()
+        let userIdValue = userId ?? "anon"
+        let categoryIds = newList.map { $0.id.uuidString }
+        let persistenceWorkItem = DispatchWorkItem {
+            let persistenceKey = "category_bar_order_\(userIdValue)"
+            UserDefaults.standard.set(categoryIds, forKey: persistenceKey)
+        }
+        pendingUserDefaultsWrite = persistenceWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: persistenceWorkItem)
 
         if selectedCategoryId == nil || !categories.contains(where: { $0.id == selectedCategoryId }) {
             selectedCategoryId = categories.first?.id
@@ -204,21 +305,18 @@ struct DashboardView: View {
     }
 
     private func idForTitle(_ title: String) -> UUID {
-        let mapKey = "category_id_map_\(userId ?? "anon")"
-        var map = UserDefaults.standard.dictionary(forKey: mapKey) as? [String: String] ?? [:]
-        if let existing = map[title], let uuid = UUID(uuidString: existing) {
-            return uuid
+        if let cached = categoryIdMapCache[title] {
+            return cached
         }
         let newId = UUID()
-        map[title] = newId.uuidString
-        UserDefaults.standard.set(map, forKey: mapKey)
+        categoryIdMapCache[title] = newId
         return newId
     }
 
+    private static let lightHapticGenerator = UIImpactFeedbackGenerator(style: .light)
     private func lightHaptic() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        Self.lightHapticGenerator.prepare()
+        Self.lightHapticGenerator.impactOccurred()
     }
 
     private func clampCategoryName(_ value: String) -> String {
@@ -230,7 +328,11 @@ struct DashboardView: View {
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 16) {
             ZStack {
-                HStack {
+                HStack(spacing: 10) {
+                    Image("DashboardLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 28, height: 28)
                     Text("Your Clips.")
                         .font(.title2).bold()
                         .foregroundColor(primaryText)
@@ -273,16 +375,15 @@ struct DashboardView: View {
                 )
                     .textInputAutocapitalization(.never)
                     .font(.system(size: 14))
+                    .foregroundColor(primaryText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-                    .foregroundColor(primaryText)
-                    .cornerRadius(12)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .glassBarStyle(themeBackground: themeBackground, strokeColor: primaryText)
                     .onChange(of: newCategoryName) { _, newValue in
                         newCategoryName = clampCategoryName(newValue)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
                 Button {
                     lightHaptic()
                     Task {
@@ -330,6 +431,16 @@ struct DashboardView: View {
                 pendingDeleteCategory = category
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            Text("+1")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(red: 0.2, green: 0.72, blue: 0.35))
+                .opacity(plusOneOpacity)
+                .offset(y: plusOneOffset)
+                .padding(.leading, 44)
+                .padding(.bottom, 18)
+                .allowsHitTesting(false)
+        }
     }
 
     private var addClipSheetContent: some View {
@@ -346,8 +457,9 @@ struct DashboardView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(primaryText.opacity(0.8))
                             .frame(width: 32, height: 32)
-                            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                            .background(ThemeColors.glassCardBackground(from: themeBackground))
                             .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(themeBackground == "white" ? 0.06 : 0), radius: themeBackground == "white" ? 3 : 0, x: 0, y: 1)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -355,19 +467,14 @@ struct DashboardView: View {
 
             NoKeyboardURLField(
                 text: $vm.urlText,
-                placeholder: vm.errorMessage ?? "Paste any link",
+                placeholder: vm.errorMessage ?? "Paste a clip URL",
                 placeholderIsError: vm.errorMessage != nil,
                 textColor: ThemeColors.primaryTextUI(from: themeBackground)
             )
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .frame(height: 44)
-                .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(primaryText.opacity(ThemeColors.inputStrokeOpacity(from: themeBackground)), lineWidth: 1)
-                )
+                .glassBarStyle(themeBackground: themeBackground, strokeColor: primaryText)
                 .padding(.horizontal, 20)
 
                 if let info = vm.infoMessage {
@@ -383,6 +490,7 @@ struct DashboardView: View {
                     Task {
                         await vm.mine()
                         if vm.urlText.isEmpty && !vm.isLoading {
+                            didJustSaveFromInApp = true
                             withAnimation(.easeOut(duration: 0.25)) {
                                 showAddClipSheet = false
                             }
@@ -407,7 +515,9 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(accentColor)
-                    .cornerRadius(12)
+                    .cornerRadius(ThemeColors.inputAndButtonCornerRadius)
+                    .glassButtonHighlight(themeBackground: themeBackground)
+                    .shadow(color: Color.black.opacity(ThemeColors.shadowOpacityButton(from: themeBackground)), radius: themeBackground == "white" ? 6 : 2, x: 1, y: 3)
                 }
                 .disabled(vm.isLoading)
                 .padding(.horizontal, 20)
@@ -421,25 +531,24 @@ struct DashboardView: View {
         HStack(spacing: 8) {
             NoKeyboardURLField(
                 text: $vm.urlText,
-                placeholder: vm.errorMessage ?? "Paste a video URL",
+                placeholder: vm.errorMessage ?? "Paste a clip URL",
                 placeholderIsError: vm.errorMessage != nil,
                 textColor: ThemeColors.primaryTextUI(from: themeBackground)
             )
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(primaryText.opacity(ThemeColors.inputStrokeOpacity(from: themeBackground)), lineWidth: 1)
-            )
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
             .fixedSize(horizontal: false, vertical: true)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .glassBarStyle(themeBackground: themeBackground, strokeColor: primaryText)
 
             Button {
                 lightHaptic()
-                Task { await vm.mine() }
+                Task {
+                    await vm.mine()
+                    if vm.urlText.isEmpty && !vm.isLoading {
+                        didJustSaveFromInApp = true
+                    }
+                }
             } label: {
                 HStack(spacing: 6) {
                     if vm.isLoading { ProgressView().tint(accentColor) }
@@ -476,7 +585,7 @@ struct DashboardView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(accentColor.opacity(0.8))
 
-                TextField("", text: $searchText, prompt: Text("Search transcripts").foregroundColor(primaryText.opacity(themeBackground == "white" ? 0.65 : 0.6)))
+                TextField("", text: $searchText, prompt: Text("Search clips/notes").foregroundColor(primaryText.opacity(themeBackground == "white" ? 0.65 : 0.6)))
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .foregroundColor(primaryText)
@@ -496,13 +605,8 @@ struct DashboardView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(primaryText.opacity(ThemeColors.inputStrokeOpacity(from: themeBackground)), lineWidth: 1)
-            )
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+            .glassBarStyle(themeBackground: themeBackground, strokeColor: primaryText)
 
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -514,8 +618,10 @@ struct DashboardView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(primaryText.opacity(0.8))
                     .padding(10)
-                    .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
+                    .frame(width: 40, height: 40)
+                    .background(ThemeColors.glassCardBackground(from: themeBackground))
                     .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(themeBackground == "white" ? 0.06 : 0), radius: themeBackground == "white" ? 4 : 0, x: 0, y: 2)
             }
         }
     }
@@ -539,11 +645,11 @@ struct DashboardView: View {
         if trimmedSearch.isEmpty {
             return baseClips
         }
-        if category.title == "All" {
-            let query = trimmedSearch.lowercased()
-            return baseClips.filter { $0.transcript.lowercased().contains(query) }
+        let query = trimmedSearch.lowercased()
+        return baseClips.filter { clip in
+            clip.transcript.lowercased().contains(query)
+                || (clip.personalNotes?.lowercased().contains(query) ?? false)
         }
-        return []
     }
 
     private var pagerView: some View {
@@ -555,7 +661,7 @@ struct DashboardView: View {
             ScrollView {
                 let pageClips = clipsForCategory(category)
                 let trimmedSearch = trimmedSearchText
-                VStack(spacing: 12) {
+                LazyVStack(spacing: 12) {
                         if category.title == "All" && pageClips.isEmpty {
                             if trimmedSearch.isEmpty {
                                 EmptyClipPlaceholder()
@@ -568,7 +674,7 @@ struct DashboardView: View {
                             ClipCard(
                                 clipNumber: clipNumber,
                                 clip: clip,
-                                categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
+                                categories: cachedOrderedCategoryTitles,
                                 onSelectCategory: { cat in onSelectCategory(clip, cat) },
                                 onExpand: {
                                     selectedClip = clip
@@ -582,6 +688,12 @@ struct DashboardView: View {
                                         } catch {
                                             print("Delete clip error:", error)
                                         }
+                                    }
+                                },
+                                onSaveNotes: { notes in
+                                    guard let uid = userId else { return }
+                                    Task {
+                                        try? await clipsStore.updateNotes(userId: uid, clipId: clip.id, notes: notes)
                                     }
                                 }
                             )
@@ -602,7 +714,7 @@ struct DashboardView: View {
     private struct EmptyClipPlaceholder: View {
         @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
         @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
-        private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
+        private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(themeBackground == "white" ? 0.75 : 0.2) }
         private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
         var body: some View {
@@ -614,19 +726,32 @@ struct DashboardView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.clear)
+            .background(ThemeColors.glassCardBackground(from: themeBackground))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(outlineColor, lineWidth: 1.2)
+                Group {
+                    if themeBackground == "white" {
+                        LinearGradient(
+                            colors: [Color.white.opacity(ThemeColors.glassHighlightOpacity), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
             )
             .cornerRadius(16)
+            .cardDepthShadow(themeBackground: themeBackground)
         }
     }
 
     private struct SearchEmptyPlaceholder: View {
         @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
         @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
-        private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
+        private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(themeBackground == "white" ? 0.75 : 0.2) }
         private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
 
         var body: some View {
@@ -638,12 +763,25 @@ struct DashboardView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.clear)
+            .background(ThemeColors.glassCardBackground(from: themeBackground))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(outlineColor, lineWidth: 1.2)
+                Group {
+                    if themeBackground == "white" {
+                        LinearGradient(
+                            colors: [Color.white.opacity(ThemeColors.glassHighlightOpacity), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
             )
             .cornerRadius(16)
+            .cardDepthShadow(themeBackground: themeBackground)
         }
     }
 
@@ -651,6 +789,8 @@ struct DashboardView: View {
         guard let uid = userId else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let lower = trimmed.lowercased()
+        let isDefaultCategory = categoriesStore.defaultCategories.contains(where: { $0.lowercased() == lower })
 
         let db = Firestore.firestore()
         do {
@@ -665,15 +805,19 @@ struct DashboardView: View {
                 try await doc.reference.updateData(["category": "Other"])
             }
 
-            let snapshot = try await db
-                .collection("users")
-                .document(uid)
-                .collection("categories")
-                .whereField("name", isEqualTo: trimmed)
-                .getDocuments()
+            if isDefaultCategory {
+                categoriesStore.removeDefaultCategory(name: trimmed)
+            } else {
+                let snapshot = try await db
+                    .collection("users")
+                    .document(uid)
+                    .collection("categories")
+                    .whereField("name", isEqualTo: trimmed)
+                    .getDocuments()
 
-            for doc in snapshot.documents {
-                try await doc.reference.delete()
+                for doc in snapshot.documents {
+                    try await doc.reference.delete()
+                }
             }
         } catch {
             print("Delete category error:", error)
@@ -716,7 +860,7 @@ private struct SwipePagingView<Page, Content: View>: View {
                 .coordinateSpace(name: "Pager")
                 .pagingIfAvailable()
                 .onChange(of: selectedIndex) { _, newValue in
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
                         proxy.scrollTo(newValue, anchor: .center)
                     }
                 }
@@ -758,7 +902,9 @@ private struct NarrowActionButtonStyle: ButtonStyle {
             .frame(width: 112, height: 40)
             .background(themeBackground == "white" ? accentColor : primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
             .foregroundColor(themeBackground == "white" ? (accentColor == .white ? .black : .white) : accentColor)
-            .cornerRadius(12)
+            .cornerRadius(ThemeColors.inputAndButtonCornerRadius)
+            .glassButtonHighlight(themeBackground: themeBackground)
+            .shadow(color: Color.black.opacity(ThemeColors.shadowOpacityButton(from: themeBackground)), radius: themeBackground == "white" ? 6 : 2, x: 1, y: 3)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
@@ -789,7 +935,9 @@ private struct ActionButtonStyle: ButtonStyle {
             .frame(width: 160, height: 40)
             .background(themeBackground == "white" ? accentColor : primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
             .foregroundColor(themeBackground == "white" ? (accentColor == .white ? .black : .white) : accentColor)
-            .cornerRadius(12)
+            .cornerRadius(ThemeColors.inputAndButtonCornerRadius)
+            .glassButtonHighlight(themeBackground: themeBackground)
+            .shadow(color: Color.black.opacity(ThemeColors.shadowOpacityButton(from: themeBackground)), radius: themeBackground == "white" ? 6 : 2, x: 1, y: 3)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)

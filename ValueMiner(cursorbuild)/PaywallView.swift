@@ -1,7 +1,7 @@
 //
 //  PaywallView.swift
 //  ValueMiner(cursorbuild)
-//
+//  
 //  Created by Michael Alfieri on 2/02/26.
 //
 

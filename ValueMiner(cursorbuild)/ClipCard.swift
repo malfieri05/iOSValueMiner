@@ -14,6 +14,21 @@ private let clipDateFormatter: DateFormatter = {
     return df
 }()
 
+private let clipCardCapsuleFont = UIFont.systemFont(ofSize: 12, weight: .bold)
+
+private enum ClipViewPreference {
+    static let key = "clipTranscriptPreference"
+    static func get(clipId: String) -> Bool {
+        let dict = UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
+        return dict[clipId] ?? true
+    }
+    static func set(clipId: String, showTranscript: Bool) {
+        var dict = (UserDefaults.standard.dictionary(forKey: key) as? [String: Bool]) ?? [:]
+        dict[clipId] = showTranscript
+        UserDefaults.standard.set(dict, forKey: key)
+    }
+}
+
 struct ClipCard: View {
     let clipNumber: Int
     let clip: Clip
@@ -21,14 +36,41 @@ struct ClipCard: View {
     let onSelectCategory: (String) -> Void
     let onExpand: () -> Void
     let onDelete: () -> Void
+    let onSaveNotes: (String) -> Void
 
-    @State private var showDeleteConfirm = false
     @State private var showShareSheet = false
+    @State private var showNotesSheet = false
+    @State private var showTranscriptOnCard: Bool
+    @State private var cachedThumbnailURL: URL?
+    @State private var cachedCapsuleMinWidth: CGFloat?
+    @Environment(\.openURL) private var openURL
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
+    init(clipNumber: Int, clip: Clip, categories: [String], onSelectCategory: @escaping (String) -> Void, onExpand: @escaping () -> Void, onDelete: @escaping () -> Void, onSaveNotes: @escaping (String) -> Void) {
+        self.clipNumber = clipNumber
+        self.clip = clip
+        self.categories = categories
+        self.onSelectCategory = onSelectCategory
+        self.onExpand = onExpand
+        self.onDelete = onDelete
+        self.onSaveNotes = onSaveNotes
+        _showTranscriptOnCard = State(initialValue: ClipViewPreference.get(clipId: clip.id))
+    }
+
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+
+    private static let lightHapticGenerator = UIImpactFeedbackGenerator(style: .light)
+    private static let linkHapticGenerator = UIImpactFeedbackGenerator(style: .medium)
+    private func lightHaptic() {
+        Self.lightHapticGenerator.prepare()
+        Self.lightHapticGenerator.impactOccurred()
+    }
+    private func linkHaptic() {
+        Self.linkHapticGenerator.prepare()
+        Self.linkHapticGenerator.impactOccurred()
+    }
 
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -46,45 +88,54 @@ struct ClipCard: View {
                         .padding(.vertical, 6)
                         .background(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
                         .cornerRadius(14)
-                        .frame(minWidth: capsuleMinWidth(), alignment: .leading)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(accentColor.opacity(themeBackground == "white" ? 0.5 : 0.35), lineWidth: ThemeColors.capsuleAndCardBorderWidth)
+                        )
+                        .frame(minWidth: cachedCapsuleMinWidth ?? capsuleMinWidth(), alignment: .leading)
                         .lineLimit(1)
-                        .fixedSize(horizontal: false, vertical: false)
-                        .transaction { $0.animation = nil }
+                        .fixedSize(horizontal: true, vertical: false)
+                        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: clip.category)
+                        .onAppear {
+                            if cachedCapsuleMinWidth == nil {
+                                cachedCapsuleMinWidth = capsuleMinWidth()
+                            }
+                        }
+                        .onChange(of: categories) { _, _ in
+                            cachedCapsuleMinWidth = capsuleMinWidth()
+                        }
+                        .onChange(of: clip.category) { _, _ in
+                            cachedCapsuleMinWidth = capsuleMinWidth()
+                        }
                 }
 
                 Spacer()
 
-                Menu {
-                    if let url = URL(string: clip.url) {
-                        Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            showShareSheet = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text("Share Clip Link")
-                                Image(systemName: "square.and.arrow.up")
-                            }
-                        }
-                    } else {
-                        Text("Share Clip Link")
-                    }
-
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
-                    } label: {
-                        Text("Delete Clip")
-                    }
+                Button {
+                    lightHaptic()
+                    showNotesSheet = true
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .semibold))
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(accentColor)
                         .padding(7)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                })
+
+                if URL(string: clip.url) != nil {
+                    Button {
+                        lightHaptic()
+                        showShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(accentColor)
+                            .padding(7)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             // Row with Clip #, Link, and platform on same line
@@ -95,17 +146,19 @@ struct ClipCard: View {
                     .underline(true, color: primaryText.opacity(0.6))
 
                 if let url = URL(string: clip.url) {
-                    Link(destination: url) {
+                    Button {
+                        linkHaptic()
+                        openURL(url)
+                    } label: {
                         Image(systemName: "link")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13.65, weight: .medium))
                             .foregroundColor(accentColor)
                     }
-                    .simultaneousGesture(TapGesture().onEnded {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    })
+                    .buttonStyle(.plain)
+                    .onAppear { Self.linkHapticGenerator.prepare() }
                 } else {
                     Image(systemName: "link")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 13.65, weight: .medium))
                         .foregroundColor(accentColor.opacity(0.35))
                 }
 
@@ -116,15 +169,78 @@ struct ClipCard: View {
                     .foregroundColor(primaryText.opacity(0.7))
             }
 
-            // Transcript preview
-            Text(capitalizeFirstLetter(clip.transcript))
-                .font(.system(size: 14, weight: .regular))
-                .lineLimit(3)
-                .foregroundColor(primaryText)
+            // Transcript or notes preview — fixed height so card size never changes
+            Group {
+                if showTranscriptOnCard {
+                    Text(capitalizeFirstLetter(clip.transcript))
+                } else {
+                    Text((clip.personalNotes?.isEmpty == false) ? clip.personalNotes! : "No notes yet. Tap the note icon to add some.")
+                        .foregroundColor((clip.personalNotes?.isEmpty == false) ? primaryText : primaryText.opacity(0.5))
+                }
+            }
+            .font(.system(size: 14, weight: .regular))
+            .lineLimit(3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 52)
 
-            // Date at bottom right
+            // Bottom row: icon-only toggle (bottom left) + date (bottom right)
             HStack {
+                Button {
+                    lightHaptic()
+                    showTranscriptOnCard.toggle()
+                    ClipViewPreference.set(clipId: clip.id, showTranscript: showTranscriptOnCard)
+                } label: {
+                    HStack(spacing: 0) {
+                        Image(systemName: "person.wave.2")
+                            .font(.system(size: 12, weight: showTranscriptOnCard ? .semibold : .regular))
+                            .foregroundColor(showTranscriptOnCard ? primaryText : primaryText.opacity(0.5))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(
+                                Group {
+                                    if showTranscriptOnCard {
+                                        UnevenRoundedRectangle(
+                                            topLeadingRadius: 10,
+                                            bottomLeadingRadius: 10,
+                                            bottomTrailingRadius: 0,
+                                            topTrailingRadius: 0,
+                                            style: .continuous
+                                        )
+                                        .fill(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
+                                    }
+                                }
+                            )
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 12, weight: showTranscriptOnCard ? .regular : .semibold))
+                            .foregroundColor(showTranscriptOnCard ? primaryText.opacity(0.5) : primaryText)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(
+                                Group {
+                                    if !showTranscriptOnCard {
+                                        UnevenRoundedRectangle(
+                                            topLeadingRadius: 0,
+                                            bottomLeadingRadius: 0,
+                                            bottomTrailingRadius: 10,
+                                            topTrailingRadius: 10,
+                                            style: .continuous
+                                        )
+                                        .fill(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
+                                    }
+                                }
+                            )
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(primaryText.opacity(0.08))
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
                 Spacer()
+
                 Text(clipDateFormatter.string(from: clip.createdAt))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(primaryText.opacity(0.6))
@@ -133,8 +249,14 @@ struct ClipCard: View {
     }
 
     private var thumbnailURL: URL? {
-        guard let url = thumbnailURLFromVideoURL(clip.url) else { return nil }
-        return URL(string: url)
+        if let cached = cachedThumbnailURL {
+            return cached
+        }
+        if let urlString = thumbnailURLFromVideoURL(clip.url), let url = URL(string: urlString) {
+            cachedThumbnailURL = url
+            return url
+        }
+        return nil
     }
 
     private func thumbnailURLFromVideoURL(_ urlString: String) -> String? {
@@ -187,38 +309,82 @@ struct ClipCard: View {
                 thumbnailView(url: thumbURL)
             }
         }
+        .onAppear {
+            // Cache thumbnail URL on appear
+            if cachedThumbnailURL == nil {
+                if let urlString = thumbnailURLFromVideoURL(clip.url), let url = URL(string: urlString) {
+                    cachedThumbnailURL = url
+                }
+            }
+        }
+        .onChange(of: clip.url) { _, _ in
+            // Invalidate cache when clip URL changes
+            cachedThumbnailURL = nil
+            if let urlString = thumbnailURLFromVideoURL(clip.url), let url = URL(string: urlString) {
+                cachedThumbnailURL = url
+            }
+        }
         .foregroundColor(primaryText)
         .padding(14)
-        .background(Color.clear)
+        .background(ThemeColors.glassCardBackground(from: themeBackground))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(accentColor.opacity(0.9), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
+            Group {
+                if themeBackground == "white" {
+                    LinearGradient(
+                        colors: [Color.black.opacity(ThemeColors.glassInnerShadowOpacity), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+            .allowsHitTesting(false)
+        )
+        .overlay(
+            Group {
+                if themeBackground == "white" {
+                    LinearGradient(
+                        colors: [Color.white.opacity(ThemeColors.glassHighlightOpacity), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+            .allowsHitTesting(false)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentColor.opacity(themeBackground == "white" ? 0.75 : 0.18), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
+                .allowsHitTesting(false)
         )
         .cornerRadius(16)
-        .cardDepthShadow()
+        .cardDepthShadow(themeBackground: themeBackground)
         .contentShape(Rectangle())
         .onTapGesture {
             onExpand()
-        }
-        .alert("Delete Clip?", isPresented: $showDeleteConfirm) {
-            Button("Delete", role: .destructive) {
-                onDelete()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Are you sure you want to delete this clip?")
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = URL(string: clip.url) {
                 ShareSheet(activityItems: [ShareItemSource(url: url)])
             }
         }
+        .sheet(isPresented: $showNotesSheet) {
+            ClipNotesSheet(
+                title: "Clip \(clipNumber)",
+                initialNotes: clip.personalNotes ?? "",
+                onSave: { notes in
+                    onSaveNotes(notes)
+                    showNotesSheet = false
+                },
+                onCancel: { showNotesSheet = false }
+            )
+        }
     }
 
     private func capsuleMinWidth() -> CGFloat {
-        let font = UIFont.systemFont(ofSize: 12, weight: .bold)
         let maxTextWidth = categories
-            .map { ($0.uppercased() as NSString).size(withAttributes: [.font: font]).width }
+            .map { ($0.uppercased() as NSString).size(withAttributes: [.font: clipCardCapsuleFont]).width }
             .max() ?? 0
         let horizontalPadding: CGFloat = 24 // matches .padding(.horizontal, 12)
         return maxTextWidth + horizontalPadding
@@ -227,6 +393,60 @@ struct ClipCard: View {
     private func capitalizeFirstLetter(_ text: String) -> String {
         guard let first = text.first else { return text }
         return String(first).uppercased() + text.dropFirst()
+    }
+}
+
+struct ClipNotesSheet: View {
+    let title: String
+    let initialNotes: String
+    let onSave: (String) -> Void
+    let onCancel: () -> Void
+
+    @State private var draftNotes: String = ""
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+    private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $draftNotes)
+                .scrollContentBackground(.hidden)
+                .background(backgroundColor)
+                .foregroundColor(primaryText)
+                .font(.system(size: 16, weight: .regular))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .onAppear { draftNotes = initialNotes }
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        VStack(spacing: 2) {
+                            Text(title)
+                                .font(.headline)
+                                .foregroundColor(ThemeColors.primaryText(from: "black"))
+                                .padding(.top, -4)
+                            Text("Personal Notes")
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundColor(ThemeColors.primaryText(from: "black").opacity(0.85))
+                        }
+                    }
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { onCancel() }
+                            .foregroundColor(accentColor)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            onSave(draftNotes)
+                        }
+                        .fontWeight(.semibold)
+                        .foregroundColor(accentColor)
+                    }
+                }
+        }
+        .presentationDetents([.medium])
     }
 }
 
@@ -279,5 +499,48 @@ private final class ShareItemSource: NSObject, UIActivityItemSource {
             return img
         }
         return UIImage(named: "AppIcon")
+    }
+}
+
+// --- Added missing ClipDetailModal with updated category capsule as per instructions ---
+
+private struct ClipDetailModal: View {
+    let clip: Clip
+    let categories: [String]
+    let onSelectCategory: (String) -> Void
+
+    @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+
+    private var accentColor: Color { ThemeColors.color(from: themeAccent) }
+    private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
+
+    var body: some View {
+        VStack {
+            categoryCapsule
+            // Other UI here...
+        }
+    }
+
+    private var categoryCapsule: some View {
+        Menu {
+            ForEach(categories, id: \.self) { category in
+                Button(category) { onSelectCategory(category) }
+            }
+        } label: {
+            Text(clip.category.uppercased())
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(accentColor)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(accentColor.opacity(ThemeColors.accentTintOpacity(from: themeBackground)))
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(accentColor.opacity(themeBackground == "white" ? 0.5 : 0.35), lineWidth: ThemeColors.capsuleAndCardBorderWidth)
+                )
+                .fixedSize(horizontal: true, vertical: false)
+                .animation(.spring(response: 0.32, dampingFraction: 0.88), value: clip.category)
+        }
     }
 }

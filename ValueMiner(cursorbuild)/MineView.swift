@@ -27,7 +27,7 @@ struct MineView: View {
                             ClipCard(
                                 clipNumber: clipNumber,
                                 clip: clip,
-                                categories: categoriesStore.customCategories + categoriesStore.defaultCategories,
+                                categories: categoriesStore.customCategories + categoriesStore.activeDefaultCategories,
                                 onSelectCategory: { category in onSelectCategory(clip, category) },
                                 onExpand: {
                                     selectedClip = clip
@@ -42,6 +42,10 @@ struct MineView: View {
                                             print("Delete clip error:", error)
                                         }
                                     }
+                                },
+                                onSaveNotes: { notes in
+                                    guard let userId = vm.auth.userId else { return }
+                                    Task { try? await clipsStore.updateNotes(userId: userId, clipId: clip.id, notes: notes) }
                                 }
                             )
                         }

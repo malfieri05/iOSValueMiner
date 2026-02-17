@@ -52,8 +52,8 @@ struct ShareSheetOnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 LoopingVideoView(
-                    resourceName: "Onboarding Instructions",
-                    fileExtension: "mov"
+                    resourceName: "ScrollMineOnboarding",
+                    fileExtension: "mp4"
                 )
                 .frame(height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -126,8 +126,8 @@ struct ShareSheetOnboardingView: View {
         }
         .fullScreenCover(isPresented: $showVideoFullscreen) {
             FullscreenPlayerView(
-                resourceName: "Onboarding Instructions",
-                fileExtension: "mov"
+                resourceName: "ScrollMineOnboarding",
+                fileExtension: "mp4"
             )
         }
     }

@@ -763,4 +763,3 @@ private struct ModalShareSheetView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
-

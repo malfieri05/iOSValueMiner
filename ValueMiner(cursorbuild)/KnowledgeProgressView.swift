@@ -57,7 +57,7 @@ struct KnowledgeProgressView: View {
             }
         }
         .onAppear {
-            cacheWordCounts()
+            loadPreviousWordCounts()
             withAnimation(.easeOut(duration: 0.8).delay(0.2)) {
                 animateProgress = true
             }
@@ -65,6 +65,7 @@ struct KnowledgeProgressView: View {
         .onChange(of: clipsStore.clips) { _, _ in
             checkForMilestones()
             cacheWordCounts()
+            savePreviousWordCounts()
         }
         .sheet(isPresented: $showLearnMore) {
             BookEquivalentExplainerView()
@@ -402,6 +403,19 @@ struct KnowledgeProgressView: View {
         return "\(number)"
     }
 
+    private var previousWordCountsKey: String {
+        "libraryPreviousWordCounts_\(userId ?? "anon")"
+    }
+
+    private func loadPreviousWordCounts() {
+        guard let raw = UserDefaults.standard.dictionary(forKey: previousWordCountsKey) as? [String: Int] else { return }
+        previousWordCounts = raw
+    }
+
+    private func savePreviousWordCounts() {
+        UserDefaults.standard.set(previousWordCounts, forKey: previousWordCountsKey)
+    }
+
     private func cacheWordCounts() {
         for category in categories {
             previousWordCounts[category] = clipsStore.wordCount(for: category)
@@ -410,7 +424,7 @@ struct KnowledgeProgressView: View {
 
     private func checkForMilestones() {
         for category in pickerCategories {
-            let previousCount = previousWordCounts[category] ?? 0
+            guard let previousCount = previousWordCounts[category] else { continue }
             if let milestone = clipsStore.checkMilestone(for: category, previousWordCount: previousCount) {
                 let books = clipsStore.completedBooks(for: category)
                 milestoneToShow = MilestoneAlert(

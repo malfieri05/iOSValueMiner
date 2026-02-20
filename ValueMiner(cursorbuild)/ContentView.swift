@@ -92,6 +92,14 @@ struct ContentView: View {
                         .tabItem { tabItem(systemImage: "bolt.fill") }
                         .tag(0)
 
+                        KnowledgeProgressView(
+                            clipsStore: clipsStore,
+                            categoriesStore: categoriesStore,
+                            userId: auth.userId
+                        )
+                        .tabItem { tabItem(systemImage: "books.vertical.fill") }
+                        .tag(1)
+
                         NavigationStack {
                             SettingsView(
                                 onSignOut: {
@@ -101,7 +109,7 @@ struct ContentView: View {
                             )
                         }
                         .tabItem { tabItem(systemImage: "scroll.fill") }
-                        .tag(1)
+                        .tag(2)
                     }
                     .background(
                         TabBarHapticsObserver { index in

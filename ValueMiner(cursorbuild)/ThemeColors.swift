@@ -120,14 +120,15 @@ struct ThemeColors {
         raw == "white" ? 0.12 : 0.01
     }
 
+    /// Rich, saturated accent colors (blue unchanged as reference).
     static let options: [(id: ThemeAccent, name: String, color: Color)] = [
-        (.purple, "Purple", Color(red: 164/255, green: 93/255, blue: 233/255)),
-        (.blue, "Blue", Color(red: 0/255, green: 122/255, blue: 255/255)),
-        (.green, "Green", Color(red: 80/255, green: 200/255, blue: 120/255)),
-        (.red, "Red", Color(red: 244/255, green: 92/255, blue: 92/255)),
-        (.orange, "Orange", Color(red: 255/255, green: 159/255, blue: 67/255)),
-        (.pink, "Pink", Color(red: 255/255, green: 105/255, blue: 180/255)),
-        (.teal, "Teal", Color(red: 64/255, green: 196/255, blue: 212/255)),
+        (.purple, "Purple", Color(red: 147/255.0, green: 51/255.0, blue: 234/255.0)),
+        (.blue, "Blue", Color(red: 0/255.0, green: 122/255.0, blue: 255/255.0)),
+        (.green, "Green", Color(red: 34/255.0, green: 197/255.0, blue: 94/255.0)),
+        (.red, "Red", Color(red: 239/255.0, green: 68/255.0, blue: 68/255.0)),
+        (.orange, "Orange", Color(red: 249/255.0, green: 115/255.0, blue: 22/255.0)),
+        (.pink, "Pink", Color(red: 236/255.0, green: 72/255.0, blue: 153/255.0)),
+        (.teal, "Teal", Color(red: 20/255.0, green: 184/255.0, blue: 166/255.0)),
         (.white, "White", Color.white),
     ]
 
@@ -139,19 +140,19 @@ struct ThemeColors {
     static func uiColor(from raw: String) -> UIColor {
         switch ThemeAccent(rawValue: raw) ?? .purple {
         case .purple:
-            return UIColor(red: 164/255, green: 93/255, blue: 233/255, alpha: 1)
+            return UIColor(red: 147/255.0, green: 51/255.0, blue: 234/255.0, alpha: 1)
         case .blue:
-            return UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1)
+            return UIColor(red: 0/255.0, green: 122/255.0, blue: 255/255.0, alpha: 1)
         case .green:
-            return UIColor(red: 80/255, green: 200/255, blue: 120/255, alpha: 1)
+            return UIColor(red: 34/255.0, green: 197/255.0, blue: 94/255.0, alpha: 1)
         case .red:
-            return UIColor(red: 244/255, green: 92/255, blue: 92/255, alpha: 1)
+            return UIColor(red: 239/255.0, green: 68/255.0, blue: 68/255.0, alpha: 1)
         case .orange:
-            return UIColor(red: 255/255, green: 159/255, blue: 67/255, alpha: 1)
+            return UIColor(red: 249/255.0, green: 115/255.0, blue: 22/255.0, alpha: 1)
         case .pink:
-            return UIColor(red: 255/255, green: 105/255, blue: 180/255, alpha: 1)
+            return UIColor(red: 236/255.0, green: 72/255.0, blue: 153/255.0, alpha: 1)
         case .teal:
-            return UIColor(red: 64/255, green: 196/255, blue: 212/255, alpha: 1)
+            return UIColor(red: 20/255.0, green: 184/255.0, blue: 166/255.0, alpha: 1)
         case .white:
             return UIColor.white
         }

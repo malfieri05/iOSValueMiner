@@ -147,4 +147,68 @@ final class ClipsStore: ObservableObject {
             .document(clipId)
             .delete()
     }
+
+    // MARK: - Book Equivalent Tracking
+
+    /// Words required for one "book equivalent" of core knowledge
+    /// Based on research: avg nonfiction book ~50,000 words, ~10% is core actionable content
+    static let wordsPerBookEquivalent: Int = 5000
+
+    /// Calculate total transcript words for a given category
+    func wordCount(for category: String) -> Int {
+        let relevantClips = category == "All"
+            ? clips
+            : clips.filter { $0.category == category }
+
+        return relevantClips.reduce(0) { total, clip in
+            total + clip.transcript.split(whereSeparator: { $0.isWhitespace }).count
+        }
+    }
+
+    /// Calculate book equivalents for a category (as a Double for partial progress)
+    func bookEquivalents(for category: String) -> Double {
+        let words = wordCount(for: category)
+        return Double(words) / Double(Self.wordsPerBookEquivalent)
+    }
+
+    /// Get progress toward next book equivalent (0.0 - 1.0)
+    func progressToNextBook(for category: String) -> Double {
+        let equivalents = bookEquivalents(for: category)
+        return equivalents.truncatingRemainder(dividingBy: 1.0)
+    }
+
+    /// Get completed book count for a category
+    func completedBooks(for category: String) -> Int {
+        return Int(bookEquivalents(for: category))
+    }
+
+    /// Get clip count for a category
+    func clipCount(for category: String) -> Int {
+        if category == "All" {
+            return clips.count
+        }
+        return clips.filter { $0.category == category }.count
+    }
+
+    /// Check which milestone (0.25, 0.5, 0.75, 1.0) was just crossed
+    func checkMilestone(for category: String, previousWordCount: Int) -> Double? {
+        let prevProgress = Double(previousWordCount % Self.wordsPerBookEquivalent) / Double(Self.wordsPerBookEquivalent)
+        let currentProgress = progressToNextBook(for: category)
+        let prevBooks = previousWordCount / Self.wordsPerBookEquivalent
+        let currentBooks = completedBooks(for: category)
+
+        // Check if we completed a full book
+        if currentBooks > prevBooks {
+            return 1.0
+        }
+
+        // Check milestone crossings within the same book
+        let milestones: [Double] = [0.25, 0.5, 0.75]
+        for milestone in milestones {
+            if prevProgress < milestone && currentProgress >= milestone {
+                return milestone
+            }
+        }
+        return nil
+    }
 }

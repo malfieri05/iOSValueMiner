@@ -70,8 +70,6 @@ struct SettingsView: View {
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
-    // Match the mined clip cell outline style (ClipCard)
-    private var outlineColor: Color { ThemeColors.color(from: themeAccent).opacity(0.9) }
     private var accentPurple: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
@@ -193,12 +191,12 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.clear)
+        .background(ThemeColors.glassCardBackground(from: themeBackground))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentPurple.opacity(themeBackground == "white" ? 0.6 : 0.3), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .cardDepthShadow(themeBackground: themeBackground)
         .sheet(isPresented: $showShareSheetHelp) {
             ShareSheetOnboardingView(onDismiss: {
@@ -227,12 +225,12 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.clear)
+        .background(ThemeColors.glassCardBackground(from: themeBackground))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentPurple.opacity(themeBackground == "white" ? 0.6 : 0.3), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .cardDepthShadow(themeBackground: themeBackground)
         .frame(maxWidth: .infinity)
         .frame(height: 110)
@@ -254,12 +252,12 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.clear)
+        .background(ThemeColors.glassCardBackground(from: themeBackground))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentPurple.opacity(themeBackground == "white" ? 0.6 : 0.3), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .cardDepthShadow(themeBackground: themeBackground)
         .frame(maxWidth: .infinity)
         .frame(height: 110)
@@ -427,12 +425,12 @@ struct SettingsView: View {
             }
         }
         .padding(16)
-        .background(Color.clear)
+        .background(ThemeColors.glassCardBackground(from: themeBackground))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(outlineColor, lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentPurple.opacity(themeBackground == "white" ? 0.6 : 0.3), lineWidth: ThemeColors.feedCardAndProfileBoxBorderWidth)
         )
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .cardDepthShadow(themeBackground: themeBackground)
         .padding(.horizontal, 16)
     }

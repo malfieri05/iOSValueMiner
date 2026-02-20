@@ -812,6 +812,11 @@
 			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFunctions;
 		};
+		C41DD4492F34DBC10011764D /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C41DD4482F34DBC10011764D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
 		C47BB6292F257FA500693AC2 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
@@ -836,11 +841,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
-		};
-		C41DD4492F34DBC10011764D /* GoogleSignIn */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C41DD4482F34DBC10011764D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
-			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

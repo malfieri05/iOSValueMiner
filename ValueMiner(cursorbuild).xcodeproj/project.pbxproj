@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C406B9D12F2BBE120040C750 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = C406B9D02F2BBE120040C750 /* FirebaseFunctions */; };
+		C41DD44A2F34DBC10011764D /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C41DD4492F34DBC10011764D /* GoogleSignIn */; };
 		C47BB62A2F257FA500693AC2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB6292F257FA500693AC2 /* FirebaseAuth */; };
 		C47BB62C2F257FA500693AC2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = C47BB62B2F257FA500693AC2 /* FirebaseFirestore */; };
 		C47BB6522F26876D00693AC2 /* ValueMinerShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C47BB6482F26876B00693AC2 /* ValueMinerShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -103,6 +104,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C406B9D12F2BBE120040C750 /* FirebaseFunctions in Frameworks */,
+				C41DD44A2F34DBC10011764D /* GoogleSignIn in Frameworks */,
 				C47BB62A2F257FA500693AC2 /* FirebaseAuth in Frameworks */,
 				C47BB62C2F257FA500693AC2 /* FirebaseFirestore in Frameworks */,
 			);
@@ -190,6 +192,7 @@
 				C47BB6292F257FA500693AC2 /* FirebaseAuth */,
 				C47BB62B2F257FA500693AC2 /* FirebaseFirestore */,
 				C406B9D02F2BBE120040C750 /* FirebaseFunctions */,
+				C41DD4492F34DBC10011764D /* GoogleSignIn */,
 			);
 			productName = "ValueMiner(cursorbuild)";
 			productReference = C47BB5E72F23F1E700693AC2 /* ScrollMine.app */;
@@ -534,7 +537,6 @@
 				INFOPLIST_FILE = "ValueMiner-cursorbuild--Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -571,7 +573,6 @@
 				INFOPLIST_FILE = "ValueMiner-cursorbuild--Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -835,6 +836,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C47BB6282F257FA500693AC2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		C41DD4492F34DBC10011764D /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C41DD4482F34DBC10011764D /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

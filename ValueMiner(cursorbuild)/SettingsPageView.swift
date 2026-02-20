@@ -2,7 +2,7 @@
 //  SettingsPageView.swift
 //  ValueMiner(cursorbuild)
 //
-//  Settings page with SUPPORT, ABOUT, Subscription, Language, Delete Account, and Sign out.
+//  Settings page with SUPPORT, ABOUT, Subscription, Delete Account, and Sign out.
 //
 
 import SwiftUI
@@ -16,13 +16,14 @@ struct SettingsPageView: View {
 
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
-    @AppStorage("transcriptLanguage") private var transcriptLanguage = "en"
     @State private var showOnboarding = false
-    @State private var showLanguagePicker = false
     @State private var showPaywallPreview = false
     @State private var showDeleteAccountConfirm = false
     @State private var isDeletingAccount = false
     @State private var deleteAccountStatus: String?
+    @State private var showPasswordResetConfirm = false
+    @State private var passwordResetStatus: String?
+    @State private var isSendingPasswordReset = false
 
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
@@ -96,29 +97,6 @@ struct SettingsPageView: View {
                 .listRowSeparatorTint(primaryText.opacity(0.15))
 
                 Section {
-                    HStack {
-                        Text("Transcription language:")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(primaryText)
-                        Spacer()
-                        Text(languageName(for: transcriptLanguage))
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundColor(primaryText.opacity(0.8))
-                    }
-                    .listRowBackground(primaryText.opacity(0.06))
-
-                    settingsRow(icon: "globe", title: "Choose Language") {
-                        showLanguagePicker = true
-                    }
-                } header: {
-                    Text("LANGUAGE")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(primaryText.opacity(0.5))
-                }
-                .listRowBackground(primaryText.opacity(0.06))
-                .listRowSeparatorTint(primaryText.opacity(0.15))
-
-                Section {
                     Button(role: .destructive, action: { showDeleteAccountConfirm = true }) {
                         HStack {
                             Image(systemName: "trash")
@@ -155,6 +133,42 @@ struct SettingsPageView: View {
                 }
 
                 Section {
+                    Button(action: { showPasswordResetConfirm = true }) {
+                        HStack {
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(accentColor)
+                                .frame(width: 28, alignment: .center)
+                            Text(isSendingPasswordReset ? "Sending..." : "Send password reset")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(primaryText)
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .disabled(isSendingPasswordReset)
+                    .listRowBackground(primaryText.opacity(0.06))
+
+                    if let status = passwordResetStatus {
+                        Text(status)
+                            .font(.footnote)
+                            .foregroundColor(primaryText.opacity(0.6))
+                            .listRowBackground(primaryText.opacity(0.06))
+                    }
+                } header: {
+                    Text("PASSWORD")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(primaryText.opacity(0.5))
+                }
+                .listRowSeparatorTint(primaryText.opacity(0.15))
+                .alert("Are you sure?", isPresented: $showPasswordResetConfirm) {
+                    Button("Send", action: sendPasswordReset)
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("A password reset link will be sent to your account email.")
+                }
+
+                Section {
                     Button(action: onSignOut) {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -184,13 +198,6 @@ struct SettingsPageView: View {
                 showOnboarding = false
             }, allowsEarlyDismiss: true)
         }
-        .sheet(isPresented: $showLanguagePicker) {
-            LanguagePickerView(
-                selectedLanguage: $transcriptLanguage,
-                options: languageOptions
-            )
-            .presentationDetents([.medium, .large])
-        }
         .sheet(isPresented: $showPaywallPreview) {
             PaywallView(subscriptionManager: subscriptionManager)
                 .presentationDetents([.fraction(0.9)])
@@ -211,40 +218,28 @@ struct SettingsPageView: View {
         UIApplication.shared.open(url)
     }
 
-    private var languageOptions: [(code: String, name: String)] {
-        [
-            ("en", "English"),
-            ("es", "Spanish"),
-            ("fr", "French"),
-            ("de", "German"),
-            ("it", "Italian"),
-            ("pt", "Portuguese"),
-            ("nl", "Dutch"),
-            ("sv", "Swedish"),
-            ("da", "Danish"),
-            ("no", "Norwegian"),
-            ("fi", "Finnish"),
-            ("pl", "Polish"),
-            ("cs", "Czech"),
-            ("tr", "Turkish"),
-            ("ru", "Russian"),
-            ("uk", "Ukrainian"),
-            ("ar", "Arabic"),
-            ("he", "Hebrew"),
-            ("hi", "Hindi"),
-            ("id", "Indonesian"),
-            ("ms", "Malay"),
-            ("th", "Thai"),
-            ("vi", "Vietnamese"),
-            ("ja", "Japanese"),
-            ("ko", "Korean"),
-            ("zh", "Chinese"),
-            ("el", "Greek")
-        ]
+    private var userEmail: String {
+        Auth.auth().currentUser?.email ?? ""
     }
 
-    private func languageName(for code: String) -> String {
-        languageOptions.first(where: { $0.code == code })?.name ?? "English"
+    private func sendPasswordReset() {
+        let email = userEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty else {
+            passwordResetStatus = "No email on file."
+            return
+        }
+        isSendingPasswordReset = true
+        passwordResetStatus = nil
+        Task {
+            do {
+                try await Auth.auth().sendPasswordReset(withEmail: email)
+                passwordResetStatus = "Password reset email sent to \(email). If it's in spam, tap \"Report not spam\" so the link is clickable."
+            } catch {
+                passwordResetStatus = "Failed to send reset email."
+                print("Password reset error:", error)
+            }
+            isSendingPasswordReset = false
+        }
     }
 
     private func deleteAccount() {

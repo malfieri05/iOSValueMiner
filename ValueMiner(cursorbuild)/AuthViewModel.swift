@@ -85,7 +85,7 @@ final class AuthViewModel: ObservableObject {
         }
         do {
             try await Auth.auth().sendPasswordReset(withEmail: trimmed)
-            authInfo = "Password reset email sent."
+            authInfo = "Password reset email sent. If it’s in spam, tap “Report not spam” so the link is clickable."
         } catch {
             showError(error.localizedDescription)
         }
@@ -137,8 +137,9 @@ final class AuthViewModel: ObservableObject {
             return
         }
         let config = GIDConfiguration(clientID: clientID)
+        GIDSignIn.sharedInstance.configuration = config
         do {
-            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting, hint: nil, additionalScopes: nil, configuration: config)
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting)
             guard let idToken = result.user.idToken?.tokenString else {
                 showError("Missing Google ID token.")
                 return

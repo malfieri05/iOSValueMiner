@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 import UIKit
 import AuthenticationServices
+import FirebaseAuth
 
 struct ContentView: View {
     @StateObject private var auth = AuthViewModel()
@@ -334,8 +335,39 @@ struct ContentView: View {
             .signInWithAppleButtonStyle(themeBackground == "white" ? .black : .white)
             .frame(height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Button {
+                guard let vc = Self.topViewControllerForPresenting() else {
+                    auth.showError("Could not present sign-in.")
+                    return
+                }
+                Task { await auth.signInWithGoogle(presenting: vc) }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Sign in with Google")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(primaryText.opacity(0.08))
+                .foregroundColor(primaryText)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
         }
         .padding(.top, 6)
+    }
+
+    private static func topViewControllerForPresenting() -> UIViewController? {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+              let root = window.rootViewController else { return nil }
+        var top = root
+        while let presented = top.presentedViewController {
+            top = presented
+        }
+        return top
     }
 
 
@@ -370,69 +402,96 @@ private struct VerifyEmailView: View {
     @ObservedObject var auth: AuthViewModel
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
+    @State private var resendCooldownRemaining: Int = 0
 
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
 
+    private var userEmail: String {
+        auth.user?.email ?? "your email"
+    }
+
     var body: some View {
         ZStack {
             backgroundColor.ignoresSafeArea()
-            VStack(spacing: 16) {
-                Text("Verify your email")
-                    .font(.title2).bold()
-                    .foregroundColor(primaryText)
-
-                Text("We sent a verification link to your email. Please verify to continue.")
-                    .font(.callout)
-                    .foregroundColor(primaryText.opacity(0.8))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-
-                Button {
-                    Task { await auth.resendVerificationEmail() }
-                } label: {
-                    Text("Resend verification email")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+            ScrollView {
+                VStack(spacing: 20) {
+                    Text("Verify your email")
+                        .font(.title2).bold()
                         .foregroundColor(primaryText)
-                        .background(primaryText.opacity(0.12))
-                        .cornerRadius(12)
-                }
 
-                Button {
-                    Task { await auth.refreshUser() }
-                } label: {
-                    Text("I've verified")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .foregroundColor(themeBackground == "white" ? .black : .white)
-                        .background(themeBackground == "white" ? Color.white : accentColor)
-                        .cornerRadius(12)
-                }
+                    (Text("We sent a verification link to ")
+                        + Text(userEmail).fontWeight(.semibold)
+                        + Text(". Tap the button in that email to continue."))
+                        .font(.callout)
+                        .foregroundColor(primaryText.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
 
-                Button {
-                    auth.signOut()
-                } label: {
-                    Text("Sign out")
-                        .font(.system(size: 13, weight: .semibold))
+                    Text("If you don't see it, check your spam or junk folder.")
+                        .font(.subheadline)
                         .foregroundColor(primaryText.opacity(0.7))
-                }
-                .padding(.top, 4)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
 
-                if let error = auth.authError {
-                    Text(error)
-                        .foregroundColor(.red)
-                        .font(.footnote)
-                } else if let info = auth.authInfo {
-                    Text(info)
-                        .foregroundColor(primaryText.opacity(0.7))
-                        .font(.footnote)
+                    if resendCooldownRemaining > 0 {
+                        Text("Resend available in \(resendCooldownRemaining)s")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(primaryText.opacity(0.6))
+                    } else {
+                        Button {
+                            resendCooldownRemaining = 60
+                            Task { await auth.resendVerificationEmail() }
+                        } label: {
+                            Text("Resend verification email")
+                                .font(.system(size: 14, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .foregroundColor(primaryText)
+                                .background(primaryText.opacity(0.12))
+                                .cornerRadius(12)
+                        }
+                    }
+
+                    Button {
+                        Task { await auth.refreshUser() }
+                    } label: {
+                        Text("I've verified")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .foregroundColor(themeBackground == "white" ? .black : .white)
+                            .background(themeBackground == "white" ? Color.white : accentColor)
+                            .cornerRadius(12)
+                    }
+
+                    Button {
+                        auth.signOut()
+                    } label: {
+                        Text("Sign out")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(primaryText.opacity(0.7))
+                    }
+                    .padding(.top, 4)
+
+                    if let error = auth.authError {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.footnote)
+                    } else if let info = auth.authInfo {
+                        Text(info)
+                            .foregroundColor(primaryText.opacity(0.7))
+                            .font(.footnote)
+                    }
+                }
+                .padding(24)
+            }
+            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+                if resendCooldownRemaining > 0 {
+                    resendCooldownRemaining -= 1
                 }
             }
-            .padding(24)
         }
     }
 }

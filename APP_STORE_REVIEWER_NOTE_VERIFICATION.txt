@@ -1,0 +1,8 @@
+Copy the text below into App Store Connect → Your App → App Review Information → "Notes" (or "Review Notes") so the tester knows how to complete email verification.
+
+-------- START COPY (do not include this line) --------
+
+Email verification for sign-up:
+After creating an account, the verification email is sent to the address you enter. Please check the inbox AND spam/junk folder for that address. In the app, you can tap "Open email app" to open your mail client, then tap the "Verify my email" button in the email from Scroll Mine. If you don't see the email, tap "Resend verification email" (available after a short cooldown). Once you've opened the link, tap "I've verified" in the app to continue.
+
+-------- END COPY --------

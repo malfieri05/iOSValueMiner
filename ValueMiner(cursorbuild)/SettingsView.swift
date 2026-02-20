@@ -67,10 +67,6 @@ struct SettingsView: View {
     @State private var atLabelWidth: CGFloat = 0
     @State private var showShareSheetHelp = false
     @State private var showColorPicker = false
-    @State private var showAccountSheet = false
-    @State private var newAccountEmail = ""
-    @State private var accountStatus: String?
-    @State private var isUpdatingAccount = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
@@ -163,22 +159,20 @@ struct SettingsView: View {
     
     private var accountEmailBar: some View {
         HStack(spacing: 6) {
-            Button(action: { showAccountSheet = true }) {
-                HStack(spacing: 6) {
-                    Text("Account:")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(userEmail)
-                        .font(.system(size: 13, weight: .regular))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .minimumScaleFactor(0.7)
-                }
-                .foregroundColor(primaryText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(primaryText.opacity(0.06))
-                .cornerRadius(999)
+            HStack(spacing: 6) {
+                Text("Account:")
+                    .font(.system(size: 13, weight: .semibold))
+                Text(userEmail)
+                    .font(.system(size: 13, weight: .regular))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .minimumScaleFactor(0.7)
             }
+            .foregroundColor(primaryText)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(primaryText.opacity(0.06))
+            .cornerRadius(999)
             Spacer()
             Button(action: { showColorPicker = true }) {
                 Text("Color")
@@ -214,17 +208,6 @@ struct SettingsView: View {
         .sheet(isPresented: $showColorPicker) {
             ThemeColorPicker(selectedAccent: $themeAccent, selectedBackground: $themeBackground)
                 .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showAccountSheet) {
-            AccountSettingsSheet(
-                currentEmail: userEmail,
-                newEmail: $newAccountEmail,
-                status: $accountStatus,
-                isUpdating: $isUpdatingAccount,
-                onUpdateEmail: updateAccountEmail,
-                onResetPassword: sendPasswordResetEmail
-            )
-            .presentationDetents([.medium])
         }
     }
     
@@ -454,60 +437,12 @@ struct SettingsView: View {
         .padding(.horizontal, 16)
     }
 
-    private func updateAccountEmail() {
-        let trimmed = newAccountEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            accountStatus = "Enter a new email address."
-            return
-        }
-        guard let user = Auth.auth().currentUser else {
-            accountStatus = "No signed-in user."
-            return
-        }
+    // Password reset moved to Settings page (PASSWORD section)
 
-        isUpdatingAccount = true
-        accountStatus = nil
-        Task {
-            do {
-                try await user.updateEmail(to: trimmed)
-                accountStatus = "Email updated."
-            } catch {
-                let nsError = error as NSError
-                if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
-                    accountStatus = "Please sign out and sign back in, then try again."
-                } else {
-                    accountStatus = "Failed to update email."
-                }
-                print("Update email error:", error)
-            }
-            isUpdatingAccount = false
-        }
-    }
-
-    private func sendPasswordResetEmail() {
-        let email = userEmail
-        guard !email.isEmpty else {
-            accountStatus = "No email on file."
-            return
-        }
-        isUpdatingAccount = true
-        accountStatus = nil
-        Task {
-            do {
-                try await Auth.auth().sendPasswordReset(withEmail: email)
-                accountStatus = "Password reset email sent."
-            } catch {
-                accountStatus = "Failed to send reset email."
-                print("Password reset error:", error)
-            }
-            isUpdatingAccount = false
-        }
-    }
-    
     private var userEmail: String {
         Auth.auth().currentUser?.email ?? "Signed in"
     }
-    
+
     private var userId: String? {
         Auth.auth().currentUser?.uid
     }
@@ -761,11 +696,6 @@ struct SettingsView: View {
 
 private struct AccountSettingsSheet: View {
     let currentEmail: String
-    @Binding var newEmail: String
-    @Binding var status: String?
-    @Binding var isUpdating: Bool
-    let onUpdateEmail: () -> Void
-    let onResetPassword: () -> Void
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
 
@@ -785,47 +715,6 @@ private struct AccountSettingsSheet: View {
                     .font(.footnote)
                     .foregroundColor(primaryText.opacity(0.8))
                     .frame(maxWidth: .infinity, alignment: .center)
-
-                TextField("", text: $newEmail, prompt: Text("New email address").foregroundColor(primaryText.opacity(0.6)))
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .padding(12)
-                    .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-                    .foregroundColor(primaryText)
-                    .cornerRadius(12)
-
-                Button(action: onUpdateEmail) {
-                    Text(isUpdating ? "Updating..." : "Update Email")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .foregroundColor(themeBackground == "white" ? (accentColor == .white ? .black : .white) : primaryText)
-                        .background(themeBackground == "white" ? accentColor : primaryText.opacity(0.18))
-                        .cornerRadius(12)
-                }
-                .disabled(isUpdating)
-
-                Button(action: onResetPassword) {
-                    Text("Send Password Reset")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .foregroundColor(primaryText)
-                        .background(primaryText.opacity(ThemeColors.inputFillOpacity(from: themeBackground)))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(accentColor, lineWidth: 1)
-                        )
-                        .cornerRadius(12)
-                }
-                .disabled(isUpdating)
-
-                if let status = status {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundColor(primaryText.opacity(0.8))
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
             }
             .padding(20)
             .background(

@@ -12,20 +12,6 @@
 				<string>com.googleusercontent.apps.673161992063-bogmfck45h9rqljjj1vi7iv1goc7j3th</string>
 			</array>
 		</dict>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string></string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>com.googleusercontent.apps.673161992063-bogmfck45h9rqljjj1vi7iv1goc7j3th
-</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.673161992063-bogmfck45h9rqljjj1vi7iv1goc7j3th
-</string>
-			</array>
-		</dict>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

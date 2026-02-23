@@ -121,8 +121,14 @@ final class ShareViewController: SLComposeServiceViewController {
             "userId": userId,
             "url": urlString,
             "status": "queued",
-            "createdAt": Timestamp(date: Date())
+            "createdAt": Timestamp(date: Date()),
+            "preferredTranscriptLang": Self.preferredTranscriptLanguageCode()
         ])
+    }
+
+    /// ISO 639-1 code for transcript language (e.g. "en"). Backend passes this to Supadata and uses it as translation target when needed.
+    private static func preferredTranscriptLanguageCode() -> String {
+        Locale.current.language.languageCode?.identifier ?? "en"
     }
 
     private func showErrorAndClose(_ message: String) {

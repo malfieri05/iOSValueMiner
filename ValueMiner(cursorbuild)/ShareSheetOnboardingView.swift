@@ -18,6 +18,7 @@ struct ShareSheetOnboardingView: View {
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
     @State private var currentPage = 0
     @State private var showVideoFullscreen = false
+    @State private var didAutoPresentFullscreen = false
 
     private var accent: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
@@ -129,6 +130,15 @@ struct ShareSheetOnboardingView: View {
                 resourceName: "ScrollMineOnboarding",
                 fileExtension: "mp4"
             )
+        }
+        .onAppear {
+            guard !didAutoPresentFullscreen else { return }
+            didAutoPresentFullscreen = true
+            Task { @MainActor in
+                // Slight delay avoids presentation during initial view layout pass.
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                showVideoFullscreen = true
+            }
         }
     }
 

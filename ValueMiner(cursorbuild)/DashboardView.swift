@@ -13,6 +13,12 @@ import FirebaseFirestore
 import Foundation
 
 struct DashboardView: View {
+    private struct CategoryStoreInputs: Equatable {
+        let custom: [String]
+        let defaults: [String]
+        let removed: Set<String>
+    }
+
     let clips: [Clip]
     @ObservedObject var clipsStore: ClipsStore
     @ObservedObject var vm: MineViewModel
@@ -55,6 +61,13 @@ struct DashboardView: View {
 
     private var totalCategoryCount: Int {
         orderedCategoryTitles.count
+    }
+    private var categoryStoreInputs: CategoryStoreInputs {
+        CategoryStoreInputs(
+            custom: categoriesStore.customCategories,
+            defaults: categoriesStore.defaultCategories,
+            removed: categoriesStore.removedDefaultCategories
+        )
     }
 
     private var deletableTitles: Set<String> {
@@ -130,15 +143,7 @@ struct DashboardView: View {
                 plusOneOffset = 0
             }
         }
-        .onChange(of: categoriesStore.customCategories) { _, _ in
-            updateCachedOrderedCategoryTitles()
-            syncCategories(with: cachedOrderedCategoryTitles)
-        }
-        .onChange(of: categoriesStore.defaultCategories) { _, _ in
-            updateCachedOrderedCategoryTitles()
-            syncCategories(with: cachedOrderedCategoryTitles)
-        }
-        .onChange(of: categoriesStore.removedDefaultCategories) { _, _ in
+        .onChange(of: categoryStoreInputs) { _, _ in
             updateCachedOrderedCategoryTitles()
             syncCategories(with: cachedOrderedCategoryTitles)
         }
@@ -192,9 +197,13 @@ struct DashboardView: View {
                         Task {
                             let name = clampCategoryName(newCategoryName).trimmingCharacters(in: .whitespacesAndNewlines)
                             if let uid = userId, !name.isEmpty {
-                                try? await categoriesStore.addCategory(userId: uid, name: name)
-                                newCategoryName = ""
-                                showingAddCategory = false
+                                do {
+                                    try await categoriesStore.addCategory(userId: uid, name: name)
+                                    newCategoryName = ""
+                                    showingAddCategory = false
+                                } catch {
+                                    vm.showTransientError("Couldn't add category. Please try again.")
+                                }
                             }
                         }
                     }
@@ -389,8 +398,12 @@ struct DashboardView: View {
                     Task {
                         let name = clampCategoryName(newCategoryName).trimmingCharacters(in: .whitespacesAndNewlines)
                         if let uid = userId, !name.isEmpty {
-                            try? await categoriesStore.addCategory(userId: uid, name: name)
-                            newCategoryName = ""
+                            do {
+                                try await categoriesStore.addCategory(userId: uid, name: name)
+                                newCategoryName = ""
+                            } catch {
+                                vm.showTransientError("Couldn't add category. Please try again.")
+                            }
                         }
                     }
                 } label: {
@@ -693,7 +706,11 @@ struct DashboardView: View {
                                 onSaveNotes: { notes in
                                     guard let uid = userId else { return }
                                     Task {
-                                        try? await clipsStore.updateNotes(userId: uid, clipId: clip.id, notes: notes)
+                                        do {
+                                            try await clipsStore.updateNotes(userId: uid, clipId: clip.id, notes: notes)
+                                        } catch {
+                                            vm.showTransientError("Couldn't save notes. Please try again.")
+                                        }
                                     }
                                 }
                             )

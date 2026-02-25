@@ -9,9 +9,16 @@ import SwiftUI
 import Combine
 import UIKit
 import AuthenticationServices
+import StoreKit
 import FirebaseAuth
 
 struct ContentView: View {
+    private struct CategoryCacheInputs: Equatable {
+        let custom: [String]
+        let defaults: [String]
+        let removed: Set<String>
+    }
+
     @StateObject private var auth = AuthViewModel()
     @StateObject private var clipsStore = ClipsStore()
     @StateObject private var categoriesStore = CategoriesStore()
@@ -26,9 +33,11 @@ struct ContentView: View {
     @State private var appleNonce: String?
     @State private var cachedCombinedCategories: [String] = []
     @State private var cachedSelectedClip: Clip?
-    @AppStorage("didShowShareSheetIntro") private var didShowShareSheetIntro = false
+    @State private var didShowShareSheetIntroForCurrentUser = false
+    @AppStorage("didRequestReviewAfterThreeClips") private var didRequestReviewAfterThreeClips = false
     @AppStorage("themeAccent") private var themeAccent = ThemeColors.defaultAccent
     @AppStorage(ThemeColors.backgroundKey) private var themeBackground = ThemeColors.defaultBackground
+    @Environment(\.requestReview) private var requestReview
 
     init() {
         let auth = AuthViewModel()
@@ -46,6 +55,13 @@ struct ContentView: View {
     private var accentColor: Color { ThemeColors.color(from: themeAccent) }
     private var primaryText: Color { ThemeColors.primaryText(from: themeBackground) }
     private var backgroundColor: Color { ThemeColors.background(from: themeBackground) }
+    private var categoryCacheInputs: CategoryCacheInputs {
+        CategoryCacheInputs(
+            custom: categoriesStore.customCategories,
+            defaults: categoriesStore.defaultCategories,
+            removed: categoriesStore.removedDefaultCategories
+        )
+    }
     
     // Cached app icon - computed once
     private static let cachedAppIconName: String? = {
@@ -68,12 +84,13 @@ struct ContentView: View {
     var body: some View {
         Group {
             if auth.user != nil {
-                if !didShowShareSheetIntro {
-                    ShareSheetOnboardingView(onDismiss: {
-                        didShowShareSheetIntro = true
-                    }, allowsEarlyDismiss: false)
-                } else if auth.requiresEmailVerification {
+                if auth.requiresEmailVerification {
                     VerifyEmailView(auth: auth)
+                } else if !didShowShareSheetIntroForCurrentUser {
+                    ShareSheetOnboardingView(onDismiss: {
+                        setDidShowShareSheetIntro(true, for: auth.userId)
+                        didShowShareSheetIntroForCurrentUser = true
+                    }, allowsEarlyDismiss: false)
                 } else {
                     TabView(selection: $selectedTab) {
                         DashboardView(
@@ -86,7 +103,7 @@ struct ContentView: View {
                             categoriesStore: categoriesStore,
                             userId: auth.userId,
                             onSelectCategory: { clip, category in
-                                Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                                Task { await updateCategory(clipId: clip.id, category: category) }
                             }
                         )
                         .tabItem { tabItem(systemImage: "bolt.fill") }
@@ -149,7 +166,7 @@ struct ContentView: View {
                                     clipNumber: selectedClipNumber,
                                     categories: cachedCombinedCategories,
                                     onSelectCategory: { category in
-                                        Task { try? await clipsStore.updateCategory(userId: auth.userId ?? "", clipId: clip.id, category: category) }
+                                        Task { await updateCategory(clipId: clip.id, category: category) }
                                     },
                                     onDismiss: {
                                         withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
@@ -159,12 +176,16 @@ struct ContentView: View {
                                         }
                                     },
                                     onSaveNotes: { notes in
-                                        Task { try? await clipsStore.updateNotes(userId: auth.userId ?? "", clipId: clip.id, notes: notes) }
+                                        Task { await updateNotes(clipId: clip.id, notes: notes) }
                                     },
                                     onDelete: {
                                         guard let uid = auth.userId else { return }
                                         Task {
-                                            try? await clipsStore.deleteClip(userId: uid, clipId: clip.id)
+                                            do {
+                                                try await clipsStore.deleteClip(userId: uid, clipId: clip.id)
+                                            } catch {
+                                                auth.showError("Couldn't delete clip. Please try again.")
+                                            }
                                             await MainActor.run {
                                                 withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                                                     selectedClip = nil
@@ -190,16 +211,61 @@ struct ContentView: View {
             if let userId = newValue {
                 clipsStore.startListening(userId: userId)
                 categoriesStore.startListening(userId: userId)
+                didShowShareSheetIntroForCurrentUser = didShowShareSheetIntro(for: userId)
                 selectedTab = 0
             } else {
                 clipsStore.stopListening()
                 categoriesStore.stopListening()
+                didShowShareSheetIntroForCurrentUser = false
             }
         }
-        .onChange(of: categoriesStore.customCategories) { _, _ in updateCachedCombinedCategories() }
-        .onChange(of: categoriesStore.defaultCategories) { _, _ in updateCachedCombinedCategories() }
-        .onChange(of: categoriesStore.removedDefaultCategories) { _, _ in updateCachedCombinedCategories() }
+        .onChange(of: clipsStore.clips.count) { oldCount, newCount in
+            guard auth.userId != nil else { return }
+            guard !didRequestReviewAfterThreeClips else { return }
+            guard oldCount < 3, newCount >= 3 else { return }
+            requestReview()
+            didRequestReviewAfterThreeClips = true
+        }
+        .onAppear {
+            if let uid = auth.userId {
+                didShowShareSheetIntroForCurrentUser = didShowShareSheetIntro(for: uid)
+            }
+        }
+        .onChange(of: categoryCacheInputs) { _, _ in updateCachedCombinedCategories() }
         .onAppear { updateCachedCombinedCategories() }
+    }
+
+    private func didShowShareSheetIntro(for userId: String) -> Bool {
+        UserDefaults.standard.bool(forKey: "didShowShareSheetIntro_\(userId)")
+    }
+
+    private func setDidShowShareSheetIntro(_ value: Bool, for userId: String?) {
+        guard let userId else { return }
+        UserDefaults.standard.set(value, forKey: "didShowShareSheetIntro_\(userId)")
+    }
+
+    private func updateCategory(clipId: String, category: String) async {
+        guard let uid = auth.userId else {
+            auth.showError("Please sign in.")
+            return
+        }
+        do {
+            try await clipsStore.updateCategory(userId: uid, clipId: clipId, category: category)
+        } catch {
+            auth.showError("Couldn't update category. Please try again.")
+        }
+    }
+
+    private func updateNotes(clipId: String, notes: String) async {
+        guard let uid = auth.userId else {
+            auth.showError("Please sign in.")
+            return
+        }
+        do {
+            try await clipsStore.updateNotes(userId: uid, clipId: clipId, notes: notes)
+        } catch {
+            auth.showError("Couldn't save notes. Please try again.")
+        }
     }
 
     private var authView: some View {

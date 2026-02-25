@@ -121,6 +121,14 @@ struct SettingsView: View {
         .onDisappear {
             stopLiveClipListeners()
         }
+        .onChange(of: userId) { _, newValue in
+            stopLiveClipListeners()
+            clipCreatedAt = []
+            clipCount = 0
+            clipCountSinceLastReport = 0
+            guard newValue != nil else { return }
+            startLiveClipListeners()
+        }
         .onChange(of: scrollReportEnabled) { _, _ in
             persistScrollReportSettings()
         }

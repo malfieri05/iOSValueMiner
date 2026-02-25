@@ -5,6 +5,7 @@
 
 import SwiftUI
 import UIKit
+import LinkPresentation
 
 struct KnowledgeProgressView: View {
     @ObservedObject var clipsStore: ClipsStore
@@ -182,7 +183,20 @@ struct KnowledgeProgressView: View {
         guard let image = renderer.uiImage,
               let shareImage = Self.imageForSharing(image),
               let top = Self.topViewController() else { return }
-        let activity = UIActivityViewController(activityItems: [shareImage], applicationActivities: nil)
+        let activityItems: [Any]
+        if let appStoreURL = Config.appStoreURL {
+            let linkItem = KnowledgeProgressShareItemSource(
+                appStoreURL: appStoreURL,
+                previewImage: shareImage,
+                category: selectedCategory
+            )
+            activityItems = [shareImage, linkItem]
+        } else {
+            assertionFailure("APP_STORE_URL missing in Secrets.plist; sharing image without store link.")
+            activityItems = [shareImage]
+        }
+
+        let activity = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
         if let pop = activity.popoverPresentationController {
             pop.sourceView = top.view
             pop.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 0, height: 0)
@@ -515,6 +529,54 @@ struct KnowledgeProgressView: View {
     private func lightHaptic() {
         Self.lightHapticGenerator.prepare()
         Self.lightHapticGenerator.impactOccurred()
+    }
+}
+
+private final class KnowledgeProgressShareItemSource: NSObject, UIActivityItemSource {
+    private let appStoreURL: URL
+    private let previewImage: UIImage
+    private let category: String
+
+    init(appStoreURL: URL, previewImage: UIImage, category: String) {
+        self.appStoreURL = appStoreURL
+        self.previewImage = previewImage
+        self.category = category
+    }
+
+    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+        appStoreURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        appStoreURL
+    }
+
+    func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.originalURL = appStoreURL
+        metadata.url = appStoreURL
+        metadata.title = "ScrollMine: \(category) progress report"
+        metadata.imageProvider = NSItemProvider(object: previewImage)
+        if let icon = Self.appIconImage() {
+            metadata.iconProvider = NSItemProvider(object: icon)
+        }
+        return metadata
+    }
+
+    private static func appIconImage() -> UIImage? {
+        if
+            let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+            let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+            let files = primary["CFBundleIconFiles"] as? [String],
+            let name = files.last,
+            let img = UIImage(named: name)
+        {
+            return img
+        }
+        return UIImage(named: "AppIcon")
     }
 }
 

@@ -21,11 +21,18 @@ struct Clip: Identifiable, Hashable {
 
 @MainActor
 final class ClipsStore: ObservableObject {
-    @Published var clips: [Clip] = []
+    @Published var clips: [Clip] = [] {
+        didSet {
+            wordCountCache.removeAll(keepingCapacity: true)
+            clipCountCache.removeAll(keepingCapacity: true)
+        }
+    }
 
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var clipsById: [String: Clip] = [:]
+    private var wordCountCache: [String: Int] = [:]
+    private var clipCountCache: [String: Int] = [:]
 
     func startListening(userId: String) {
         stopListening(clearData: false)
@@ -156,13 +163,19 @@ final class ClipsStore: ObservableObject {
 
     /// Calculate total transcript words for a given category
     func wordCount(for category: String) -> Int {
+        if let cached = wordCountCache[category] {
+            return cached
+        }
+
         let relevantClips = category == "All"
             ? clips
             : clips.filter { $0.category == category }
 
-        return relevantClips.reduce(0) { total, clip in
+        let count = relevantClips.reduce(0) { total, clip in
             total + clip.transcript.split(whereSeparator: { $0.isWhitespace }).count
         }
+        wordCountCache[category] = count
+        return count
     }
 
     /// Calculate book equivalents for a category (as a Double for partial progress)
@@ -184,10 +197,19 @@ final class ClipsStore: ObservableObject {
 
     /// Get clip count for a category
     func clipCount(for category: String) -> Int {
-        if category == "All" {
-            return clips.count
+        if let cached = clipCountCache[category] {
+            return cached
         }
-        return clips.filter { $0.category == category }.count
+
+        let count: Int
+        if category == "All" {
+            count = clips.count
+        } else {
+            count = clips.filter { $0.category == category }.count
+        }
+
+        clipCountCache[category] = count
+        return count
     }
 
     /// Check which milestone (0.25, 0.5, 0.75, 1.0) was just crossed

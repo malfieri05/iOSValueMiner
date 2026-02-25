@@ -34,6 +34,12 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    deinit {
+        if let listener {
+            Auth.auth().removeStateDidChangeListener(listener)
+        }
+    }
+
     var userId: String? { user?.uid }
     var isEmailVerified: Bool { user?.isEmailVerified ?? false }
 
@@ -175,7 +181,12 @@ final class AuthViewModel: ObservableObject {
             var randoms = [UInt8](repeating: 0, count: 16)
             let errorCode = SecRandomCopyBytes(kSecRandomDefault, randoms.count, &randoms)
             if errorCode != errSecSuccess {
-                fatalError("Unable to generate nonce. SecRandomCopyBytes failed.")
+                assertionFailure("Unable to generate secure nonce bytes. Falling back to non-crypto random.")
+                while remainingLength > 0 {
+                    result.append(charset.randomElement() ?? "0")
+                    remainingLength -= 1
+                }
+                break
             }
 
             randoms.forEach { random in

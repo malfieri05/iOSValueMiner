@@ -45,7 +45,13 @@ struct MineView: View {
                                 },
                                 onSaveNotes: { notes in
                                     guard let userId = vm.auth.userId else { return }
-                                    Task { try? await clipsStore.updateNotes(userId: userId, clipId: clip.id, notes: notes) }
+                                    Task {
+                                        do {
+                                            try await clipsStore.updateNotes(userId: userId, clipId: clip.id, notes: notes)
+                                        } catch {
+                                            vm.showTransientError("Couldn't save notes. Please try again.")
+                                        }
+                                    }
                                 }
                             )
                         }

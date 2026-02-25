@@ -8,50 +8,56 @@
 import Foundation
 
 enum Config {
-    static var searchApiKey: String {
-        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
-              let data = try? Data(contentsOf: url),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              let key = dict["SEARCH_API_KEY"] as? String,
-              !key.isEmpty
+    private static let secrets: [String: Any] = {
+        guard
+            let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
+            let data = try? Data(contentsOf: url),
+            let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
         else {
-            fatalError("SEARCH_API_KEY missing in Secrets.plist")
+            assertionFailure("Secrets.plist missing or unreadable.")
+            return [:]
         }
-        return key.trimmingCharacters(in: .whitespacesAndNewlines)
+        return dict
+    }()
+
+    private static func requiredString(forKey key: String) -> String {
+        guard let value = secrets[key] as? String else {
+            assertionFailure("\(key) missing in Secrets.plist")
+            return ""
+        }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            assertionFailure("\(key) is empty in Secrets.plist")
+            return ""
+        }
+        return trimmed
+    }
+
+    private static func optionalURLString(forKey key: String) -> URL? {
+        guard let value = secrets[key] as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
+    }
+
+    static var searchApiKey: String {
+        requiredString(forKey: "SEARCH_API_KEY")
     }
 
     static var supadataApiKey: String {
-        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
-              let data = try? Data(contentsOf: url),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              let key = dict["SUPADATA_API_KEY"] as? String,
-              !key.isEmpty
-        else {
-            fatalError("SUPADATA_API_KEY missing in Secrets.plist")
-        }
-        return key.trimmingCharacters(in: .whitespacesAndNewlines)
+        requiredString(forKey: "SUPADATA_API_KEY")
     }
 
     // Required for App Store Guideline 3.1.2. Replace with your real URLs before submission.
     static var privacyPolicyURL: URL? {
-        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
-              let data = try? Data(contentsOf: url),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              let s = dict["PRIVACY_POLICY_URL"] as? String,
-              !s.isEmpty,
-              let u = URL(string: s.trimmingCharacters(in: .whitespacesAndNewlines))
-        else { return nil }
-        return u
+        optionalURLString(forKey: "PRIVACY_POLICY_URL")
     }
 
     static var termsOfUseURL: URL? {
-        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
-              let data = try? Data(contentsOf: url),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              let s = dict["TERMS_OF_USE_URL"] as? String,
-              !s.isEmpty,
-              let u = URL(string: s.trimmingCharacters(in: .whitespacesAndNewlines))
-        else { return nil }
-        return u
+        optionalURLString(forKey: "TERMS_OF_USE_URL")
+    }
+
+    static var appStoreURL: URL? {
+        optionalURLString(forKey: "APP_STORE_URL")
     }
 }

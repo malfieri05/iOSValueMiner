@@ -13,6 +13,11 @@ struct SearchAPI {
     }
 
     private static func fetchTranscript(for url: String, lang: String, attempt: Int) async throws -> String {
+        let apiKey = Config.supadataApiKey
+        guard !apiKey.isEmpty else {
+            throw NSError(domain: "Supadata", code: 0, userInfo: [NSLocalizedDescriptionKey: "Supadata API key is missing."])
+        }
+
         let encodedUrl = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? url
 
         var components = URLComponents(string: "https://api.supadata.ai/v1/transcript")!
@@ -29,7 +34,7 @@ struct SearchAPI {
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
-        request.setValue(Config.supadataApiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.timeoutInterval = 45
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -42,7 +47,7 @@ struct SearchAPI {
             guard let jobId = decoded?["jobId"] as? String else {
                 throw NSError(domain: "Supadata", code: 202, userInfo: [NSLocalizedDescriptionKey: "Missing jobId"])
             }
-            return try await pollForJob(jobId: jobId)
+            return try await pollForJob(jobId: jobId, apiKey: apiKey)
         }
 
         let decoded = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -51,7 +56,7 @@ struct SearchAPI {
         }
 
         if let jobId = decoded?["jobId"] as? String {
-            return try await pollForJob(jobId: jobId)
+            return try await pollForJob(jobId: jobId, apiKey: apiKey)
         }
 
         if let status = decoded?["status"] as? String,
@@ -65,12 +70,12 @@ struct SearchAPI {
         throw NSError(domain: "Supadata", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: raw])
     }
 
-    private static func pollForJob(jobId: String) async throws -> String {
+    private static func pollForJob(jobId: String, apiKey: String) async throws -> String {
         let endpoint = URL(string: "https://api.supadata.ai/v1/transcript/\(jobId)")!
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
-        request.setValue(Config.supadataApiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.timeoutInterval = 45
 
         // Poll up to 20 times (~40 seconds)

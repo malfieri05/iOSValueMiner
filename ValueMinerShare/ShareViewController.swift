@@ -143,7 +143,7 @@ final class ShareViewController: SLComposeServiceViewController {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
 
-    private func waitForCurrentUser(timeout: TimeInterval = 0.3) async -> User? {
+    private func waitForCurrentUser(timeout: TimeInterval = 2.0) async -> User? {
         let start = Date()
         while Date().timeIntervalSince(start) < timeout {
             if let user = Auth.auth().currentUser {

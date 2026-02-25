@@ -33,7 +33,7 @@ private struct LaunchSplashWrapper: View {
 }
 
 @main
-struct ValueMiner_cursorguild_App: App {
+struct ValueMiner_cursorbuild_App: App {
     init() {
         FirebaseApp.configure()
         try? Auth.auth().useUserAccessGroup("9Q6S64UNWA.group.org.valueminer.shared")
@@ -49,7 +49,9 @@ struct ValueMiner_cursorguild_App: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            assertionFailure("Could not create persistent ModelContainer: \(error)")
+            let fallbackConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            return try! ModelContainer(for: schema, configurations: [fallbackConfiguration])
         }
     }()
 
